@@ -1,0 +1,54 @@
+import { Message } from '../../domain/entities/message.entity';
+
+/**
+ * Envoltorio de mensajes del protocolo de chat sobre WebSocket puro. Ver el
+ * comentario al inicio de `chat.gateway.ts` para el contrato completo.
+ */
+export interface WsEnvelope<TPayload = unknown> {
+  event: string;
+  payload: TPayload;
+}
+
+export const ClientEvents = {
+  JOIN_CONVERSATION: 'joinConversation',
+  NEW_MESSAGE: 'newMessage',
+  TYPING: 'typing',
+  MARK_READ: 'markRead',
+} as const;
+
+export const ServerEvents = {
+  JOINED: 'joined',
+  NEW_MESSAGE: 'newMessage',
+  TYPING: 'typing',
+  MESSAGES_READ: 'messagesRead',
+  ERROR: 'error',
+} as const;
+
+export function envelope<TPayload>(
+  event: string,
+  payload: TPayload,
+): WsEnvelope<TPayload> {
+  return { event, payload };
+}
+
+/**
+ * Forma compartida del payload de `newMessage`, usada tanto por
+ * `ChatGateway.onNewMessage` (mensajes de texto, vía WS) como por el
+ * endpoint REST de subida de documentos — un solo lugar define la forma del
+ * evento sin importar por dónde se originó el mensaje.
+ */
+export function toNewMessagePayload(message: Message) {
+  return {
+    id: message.id,
+    conversationId: message.conversationId,
+    senderId: message.senderId,
+    type: message.type,
+    content: message.content,
+    documentUrl: message.documentUrl,
+    documentName: message.documentName,
+    documentMimeType: message.documentMimeType,
+    documentSizeBytes: message.documentSizeBytes,
+    readAt: message.readAt,
+    createdAt: message.createdAt,
+  };
+}

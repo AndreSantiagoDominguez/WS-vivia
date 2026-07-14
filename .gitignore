@@ -1,0 +1,26 @@
+# compiled output
+/dist
+/node_modules
+
+# logs
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.local
+
+# coverage
+/coverage
+
+# IDE
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# cliente de prueba manual (solo consume la API, no se commitea)
+/test-client/
+/.claude/
+
+# índice local de CodeGraph (regenerable, no es código fuente)
+/.codegraph/
