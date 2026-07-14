@@ -7,10 +7,14 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Habilitado para que el front de prueba (test-client/, corre desde otro
-  // origen) pueda llamar a los endpoints REST vía fetch(). No afecta las
-  // conexiones WebSocket, que no están sujetas a CORS.
-  app.enableCors();
+  // Solo en desarrollo: habilita que el front de prueba (test-client/, corre
+  // desde otro origen) y Swagger puedan llamar a los endpoints REST vía
+  // fetch(). En producción queda cerrado — el único consumidor real es la
+  // app Flutter (cliente nativo), que no está sujeta a CORS en absoluto (esa
+  // restricción solo aplica a clientes que corren dentro de un navegador).
+  if (process.env.NODE_ENV !== 'production') {
+    app.enableCors();
+  }
 
   // Adaptador de WebSocket puro (`ws`), explícitamente en vez del default de Socket.io.
   app.useWebSocketAdapter(new WsAdapter(app));

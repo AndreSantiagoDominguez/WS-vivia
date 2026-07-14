@@ -97,17 +97,25 @@ function rawDataToUtf8(data: RawData): string {
 }
 
 /**
- * `handleProtocols` no forma parte del tipo `GatewayMetadata` de Nest, pero
- * `WsAdapter.create()` reenvía cualquier propiedad extra directo al
- * `ws.Server` de abajo (ver `node_modules/@nestjs/platform-ws`), que sí lo
- * soporta. Se define en una constante aparte — pasarlo como objeto literal
- * directo al decorador dispara el chequeo de "excess properties" de TS.
- * Le hace eco al navegador del subprotocolo que ofreció (el token) para que
- * acepte el handshake — ver `extractProtocolToken` en `ws-auth.util.ts`.
+ * `handleProtocols`/`perMessageDeflate` no forman parte del tipo
+ * `GatewayMetadata` de Nest, pero `WsAdapter.create()` reenvía cualquier
+ * propiedad extra directo al `ws.Server` de abajo (ver
+ * `node_modules/@nestjs/platform-ws`), que sí las soporta. Se definen en una
+ * constante aparte — pasarlas como objeto literal directo al decorador
+ * dispara el chequeo de "excess properties" de TS.
+ *
+ * - `handleProtocols`: le hace eco al navegador del subprotocolo que ofreció
+ *   (el token) para que acepte el handshake — ver `extractProtocolToken` en
+ *   `ws-auth.util.ts`.
+ * - `perMessageDeflate`: comprime cada frame de WebSocket (extensión estándar
+ *   del protocolo, no algo propietario). Nuestros mensajes son JSON de texto,
+ *   que comprime bien — reduce el ancho de banda usado, algo que importa en
+ *   particular para clientes móviles en redes lentas/con datos limitados.
  */
 const wsGatewayOptions = {
   handleProtocols: (protocols: Set<string>): string | false =>
     [...protocols][0] ?? false,
+  perMessageDeflate: true,
 };
 
 @Injectable()
