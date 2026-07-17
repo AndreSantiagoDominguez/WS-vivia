@@ -148,10 +148,21 @@ CLOUDINARY_API_SECRET=<de tu dashboard de Cloudinary>
 
 ```bash
 npm install
+npm run migration:run
 npm run start:dev
 ```
 
-Con `synchronize: true` (activo hoy en `app.module.ts`), TypeORM crea/actualiza las tablas del schema `chat` solo. **Esto es apto para desarrollo local, no para producción** — antes de un deploy real conviene pasar a migraciones formales de TypeORM, para no arriesgar un cambio de esquema no controlado contra datos reales.
+`npm run migration:run` aplica el esquema versionado en `src/migrations/` (tablas, índices, foreign keys) — es un paso explícito, no automático: el server nunca corre migraciones solo en cada arranque (`migrationsRun: false` en `app.module.ts`), justo para que un deploy no pueda alterar el esquema de producción sin que alguien lo haya revisado primero.
+
+### Migraciones
+
+```bash
+npm run migration:generate -- src/migrations/NombreDelCambio   # después de modificar una entidad
+npm run migration:run                                          # aplica las migraciones pendientes
+npm run migration:revert                                       # deshace la última
+```
+
+`migration:generate` compara las entidades (`*.orm-entity.ts`) contra el estado real de la base apuntada por `DATABASE_URL` y genera el SQL del diff — revisá siempre el archivo generado antes de commitear, TypeORM no es infalible con cambios de tipo de columna o renombres.
 
 ## Testing
 
@@ -169,4 +180,4 @@ Suite de Jest: casos de uso con repositorios mockeados, `JwtVerificationService`
 
 - **CORS** solo se habilita cuando `NODE_ENV !== 'production'` (para el cliente de prueba y Swagger en local). En producción queda cerrado del todo — el único consumidor real es la app Flutter nativa, que no está sujeta a CORS de ninguna forma (esa restricción solo aplica a clientes que corren dentro de un navegador).
 - `GET /health` para que el orquestador/CI-CD sepa si el deploy está sano antes de cortar tráfico a la versión anterior.
-- Pendiente antes de producción real: migraciones de TypeORM en vez de `synchronize: true`.
+- El pipeline de deploy debe correr `npm run migration:run` como paso explícito antes de levantar la nueva versión — el proceso nunca las corre solo (`migrationsRun: false`).
