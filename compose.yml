@@ -1,0 +1,24 @@
+# Servicio de chat de Vivia (NestJS + ws puro). Sin `ports:` a propósito:
+# solo se accede vía el gateway NGINX por la red interna vivia_network.
+services:
+  chat:
+    build: .
+    container_name: vivia-chat
+    restart: always
+    # PORT, DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_* — el .env lo
+    # genera el workflow de deploy desde los Environment Secrets del repo.
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    healthcheck:
+      # node:22-alpine no trae curl; wget de busybox sí está disponible
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vivia_network
+
+networks:
+  vivia_network:
+    external: true
