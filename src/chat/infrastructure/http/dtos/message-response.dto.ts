@@ -39,6 +39,21 @@ export class MessageResponseDto {
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   readAt: Date | null;
 
+  @ApiPropertyOptional({
+    format: 'date-time',
+    nullable: true,
+    description:
+      'Puesto cuando se borró entre 1 y 5 min después de creado — el cliente debe mostrar el placeholder "mensaje eliminado". Si el borrado fue < 1 min, el mensaje no aparece más (evento messageDeleted con hardDeleted:true), este campo no aplica.',
+  })
+  deletedAt: Date | null;
+
+  @ApiPropertyOptional({
+    format: 'date-time',
+    nullable: true,
+    description: 'Puesto cuando el mensaje fue editado — mostrar "(editado)".',
+  })
+  editedAt: Date | null;
+
   @ApiProperty({ format: 'date-time' })
   createdAt: Date;
 

@@ -14,6 +14,8 @@ export const ClientEvents = {
   NEW_MESSAGE: 'newMessage',
   TYPING: 'typing',
   MARK_READ: 'markRead',
+  DELETE_MESSAGE: 'deleteMessage',
+  EDIT_MESSAGE: 'editMessage',
 } as const;
 
 export const ServerEvents = {
@@ -21,6 +23,8 @@ export const ServerEvents = {
   NEW_MESSAGE: 'newMessage',
   TYPING: 'typing',
   MESSAGES_READ: 'messagesRead',
+  MESSAGE_DELETED: 'messageDeleted',
+  MESSAGE_EDITED: 'messageEdited',
   ERROR: 'error',
 } as const;
 
@@ -49,6 +53,8 @@ export function toNewMessagePayload(message: Message) {
     documentMimeType: message.documentMimeType,
     documentSizeBytes: message.documentSizeBytes,
     readAt: message.readAt,
+    deletedAt: message.deletedAt,
+    editedAt: message.editedAt,
     createdAt: message.createdAt,
   };
 }

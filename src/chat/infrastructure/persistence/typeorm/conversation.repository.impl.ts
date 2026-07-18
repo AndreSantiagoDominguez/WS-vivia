@@ -49,12 +49,39 @@ export class TypeOrmConversationRepository implements IConversationRepository {
   async findAllForUser(userId: string): Promise<Conversation[]> {
     const found = await this.repository
       .createQueryBuilder('conversation')
-      .where('conversation.participant_one_id = :userId', { userId })
-      .orWhere('conversation.participant_two_id = :userId', { userId })
+      .where(
+        '(conversation.participant_one_id = :userId AND (conversation.hidden_for_participant_one_at IS NULL OR (conversation.last_message_at IS NOT NULL AND conversation.last_message_at > conversation.hidden_for_participant_one_at)))',
+        { userId },
+      )
+      .orWhere(
+        '(conversation.participant_two_id = :userId AND (conversation.hidden_for_participant_two_at IS NULL OR (conversation.last_message_at IS NOT NULL AND conversation.last_message_at > conversation.hidden_for_participant_two_at)))',
+        { userId },
+      )
       .orderBy('conversation.last_message_at', 'DESC', 'NULLS LAST')
       .addOrderBy('conversation.created_at', 'DESC')
       .getMany();
     return found.map(conversationToDomain);
+  }
+
+  async hideForParticipant(
+    conversationId: string,
+    userId: string,
+  ): Promise<void> {
+    // Los fragmentos `() => '...'` son SQL crudo, así que `userId` se manda
+    // como parámetro nombrado (`:userId`) en vez de interpolarlo en el
+    // string — evita inyección SQL aunque ya venga validado como UUID.
+    await this.repository
+      .createQueryBuilder()
+      .update(ConversationOrmEntity)
+      .set({
+        hiddenForParticipantOneAt: () =>
+          `CASE WHEN participant_one_id = :userId THEN now() ELSE hidden_for_participant_one_at END`,
+        hiddenForParticipantTwoAt: () =>
+          `CASE WHEN participant_two_id = :userId THEN now() ELSE hidden_for_participant_two_at END`,
+      })
+      .where('id = :conversationId', { conversationId })
+      .setParameter('userId', userId)
+      .execute();
   }
 
   async updateLastMessageAt(

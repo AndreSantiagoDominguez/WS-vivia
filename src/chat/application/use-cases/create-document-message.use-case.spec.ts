@@ -23,6 +23,8 @@ function buildConversation(): Conversation {
     propertyId: null,
     propertyTitle: null,
     lastMessageAt: null,
+    hiddenForParticipantOneAt: null,
+    hiddenForParticipantTwoAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
   });
@@ -53,11 +55,16 @@ describe('CreateDocumentMessageUseCase', () => {
       updateLastMessageAt: jest.fn(),
       reassignParticipants: jest.fn(),
       delete: jest.fn(),
+      hideForParticipant: jest.fn(),
     };
     messageRepository = {
       create: jest.fn(),
+      findById: jest.fn(),
       findByConversationId: jest.fn(),
       markAsReadForRecipient: jest.fn(),
+      hardDelete: jest.fn(),
+      softDelete: jest.fn(),
+      updateContent: jest.fn(),
       reassignConversation: jest.fn(),
       reassignSender: jest.fn(),
     };
@@ -80,6 +87,8 @@ describe('CreateDocumentMessageUseCase', () => {
       documentMimeType: baseInput.documentMimeType,
       documentSizeBytes: baseInput.documentSizeBytes,
       readAt: null,
+      deletedAt: null,
+      editedAt: null,
       createdAt: new Date('2026-01-02T00:00:00.000Z'),
       updatedAt: new Date('2026-01-02T00:00:00.000Z'),
     });
@@ -115,6 +124,8 @@ describe('CreateDocumentMessageUseCase', () => {
         documentMimeType: baseInput.documentMimeType,
         documentSizeBytes: baseInput.documentSizeBytes,
         readAt: null,
+        deletedAt: null,
+        editedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),

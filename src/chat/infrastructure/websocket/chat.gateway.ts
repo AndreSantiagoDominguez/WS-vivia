@@ -27,14 +27,23 @@
  *   - newMessage        { conversationId: string, content: string }
  *   - typing            { conversationId: string }
  *   - markRead          { conversationId: string }
+ *   - deleteMessage     { messageId: string }
+ *   - editMessage       { messageId: string, content: string }
  *
  * Eventos que el SERVIDOR puede mandar de vuelta:
- *   - joined        { conversationId: string }
- *   - newMessage    { id, conversationId, senderId, type, content, documentUrl,
- *                      documentName, documentMimeType, documentSizeBytes, readAt, createdAt }
- *   - typing        { conversationId: string, userId: string }
- *   - messagesRead  { conversationId: string, userId: string }
- *   - error         { reason: string }
+ *   - joined         { conversationId: string }
+ *   - newMessage     { id, conversationId, senderId, type, content, documentUrl,
+ *                       documentName, documentMimeType, documentSizeBytes,
+ *                       readAt, deletedAt, editedAt, createdAt }
+ *   - typing         { conversationId: string, userId: string }
+ *   - messagesRead   { conversationId: string, userId: string }
+ *   - messageDeleted { conversationId, messageId, hardDeleted: boolean, message? }
+ *                     `message` solo viene cuando `hardDeleted === false` (el
+ *                     placeholder con `deletedAt` puesto); si `hardDeleted`
+ *                     es `true` el cliente debe quitar `messageId` de su UI
+ *                     sin dejar rastro.
+ *   - messageEdited  { ...mismo shape que newMessage, con `editedAt` puesto }
+ *   - error          { reason: string }
  *
  * `markRead` NO es una acción manual del usuario (no hay botón "marcar como
  * leído" en el cliente real) — el cliente lo manda automáticamente apenas
@@ -42,6 +51,12 @@
  * `joined`. Así se marcan como leídos los mensajes pendientes de esa
  * conversación puntual; las demás conversaciones de la lista no se tocan
  * hasta que el usuario también entre a esas.
+ *
+ * `deleteMessage`/`editMessage`: solo el remitente puede borrar/editar su
+ * propio mensaje, y solo dentro de una ventana de tiempo desde `createdAt`
+ * (< 1 min: borrado sin rastro; 1-5 min: borrado con placeholder; > 5 min: ya
+ * no se puede borrar. Edición: máximo 10 min, y solo mensajes de texto, no
+ * documentos). Ver `DeleteMessageUseCase`/`EditMessageUseCase`.
  * ============================================================================
  */
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
@@ -57,11 +72,19 @@ import { validate } from 'class-validator';
 import { IncomingMessage } from 'http';
 import { RawData, Server } from 'ws';
 import { CreateMessageUseCase } from '../../application/use-cases/create-message.use-case';
+import { DeleteMessageUseCase } from '../../application/use-cases/delete-message.use-case';
+import { EditMessageUseCase } from '../../application/use-cases/edit-message.use-case';
 import { MarkMessagesReadUseCase } from '../../application/use-cases/mark-messages-read.use-case';
 import {
+  CannotEditDocumentMessageError,
   ConversationNotFoundError,
   InvalidMessageContentError,
+  MessageAlreadyDeletedError,
+  MessageDeleteWindowExpiredError,
+  MessageEditWindowExpiredError,
+  MessageNotFoundError,
   NotConversationParticipantError,
+  NotMessageSenderError,
 } from '../../application/errors';
 import {
   CONVERSATION_REPOSITORY,
@@ -74,6 +97,8 @@ import {
 } from '../auth/jwt-verification.service';
 import { extractBearerToken, extractProtocolToken } from '../auth/ws-auth.util';
 import { ConnectionRegistryService } from './connection-registry.service';
+import { DeleteMessageDto } from './dtos/delete-message.dto';
+import { EditMessageDto } from './dtos/edit-message.dto';
 import { JoinConversationDto } from './dtos/join-conversation.dto';
 import { MarkReadDto } from './dtos/mark-read.dto';
 import { NewMessageDto } from './dtos/new-message.dto';
@@ -138,6 +163,8 @@ export class ChatGateway
     private readonly connectionRegistry: ConnectionRegistryService,
     private readonly createMessageUseCase: CreateMessageUseCase,
     private readonly markMessagesReadUseCase: MarkMessagesReadUseCase,
+    private readonly deleteMessageUseCase: DeleteMessageUseCase,
+    private readonly editMessageUseCase: EditMessageUseCase,
     @Inject(CONVERSATION_REPOSITORY)
     private readonly conversationRepository: IConversationRepository,
   ) {}
@@ -260,6 +287,12 @@ export class ChatGateway
       case ClientEvents.MARK_READ:
         await this.onMarkRead(client, payload);
         break;
+      case ClientEvents.DELETE_MESSAGE:
+        await this.onDeleteMessage(client, payload);
+        break;
+      case ClientEvents.EDIT_MESSAGE:
+        await this.onEditMessage(client, payload);
+        break;
       default:
         this.sendError(client, `Unknown event: ${event}`);
     }
@@ -356,6 +389,68 @@ export class ChatGateway
     }
   }
 
+  private async onDeleteMessage(
+    client: AuthenticatedWebSocket,
+    rawPayload: unknown,
+  ): Promise<void> {
+    const dto = await this.validateOrReject(
+      client,
+      DeleteMessageDto,
+      rawPayload,
+    );
+    if (!dto) return;
+
+    try {
+      const result = await this.deleteMessageUseCase.execute({
+        messageId: dto.messageId,
+        requesterId: client.userId,
+      });
+
+      const payload = result.hardDeleted
+        ? {
+            conversationId: result.conversationId,
+            messageId: result.messageId,
+            hardDeleted: true,
+          }
+        : {
+            conversationId: result.message.conversationId,
+            messageId: result.message.id,
+            hardDeleted: false,
+            message: toNewMessagePayload(result.message),
+          };
+
+      this.connectionRegistry.broadcastToConversation(
+        payload.conversationId,
+        envelope(ServerEvents.MESSAGE_DELETED, payload),
+      );
+    } catch (error) {
+      this.sendError(client, this.describeError(error));
+    }
+  }
+
+  private async onEditMessage(
+    client: AuthenticatedWebSocket,
+    rawPayload: unknown,
+  ): Promise<void> {
+    const dto = await this.validateOrReject(client, EditMessageDto, rawPayload);
+    if (!dto) return;
+
+    try {
+      const message = await this.editMessageUseCase.execute({
+        messageId: dto.messageId,
+        requesterId: client.userId,
+        content: dto.content,
+      });
+
+      this.connectionRegistry.broadcastToConversation(
+        message.conversationId,
+        envelope(ServerEvents.MESSAGE_EDITED, toNewMessagePayload(message)),
+      );
+    } catch (error) {
+      this.sendError(client, this.describeError(error));
+    }
+  }
+
   private runHeartbeat(): void {
     for (const client of this.connectionRegistry.getAllClients()) {
       if (!client.isAlive) {
@@ -389,7 +484,13 @@ export class ChatGateway
     if (
       error instanceof ConversationNotFoundError ||
       error instanceof NotConversationParticipantError ||
-      error instanceof InvalidMessageContentError
+      error instanceof InvalidMessageContentError ||
+      error instanceof MessageNotFoundError ||
+      error instanceof NotMessageSenderError ||
+      error instanceof MessageAlreadyDeletedError ||
+      error instanceof MessageDeleteWindowExpiredError ||
+      error instanceof MessageEditWindowExpiredError ||
+      error instanceof CannotEditDocumentMessageError
     ) {
       return error.message;
     }

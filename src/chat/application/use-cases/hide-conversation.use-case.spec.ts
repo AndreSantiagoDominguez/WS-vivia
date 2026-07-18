@@ -1,12 +1,10 @@
 import { Conversation } from '../../domain/entities/conversation.entity';
-import { Message } from '../../domain/entities/message.entity';
 import { IConversationRepository } from '../../domain/repositories/conversation.repository';
-import { IMessageRepository } from '../../domain/repositories/message.repository';
 import {
   ConversationNotFoundError,
   NotConversationParticipantError,
 } from '../errors';
-import { ListMessagesUseCase } from './list-messages.use-case';
+import { HideConversationUseCase } from './hide-conversation.use-case';
 
 const PARTICIPANT_ONE = 'aaaaaaaa-0000-0000-0000-000000000001';
 const PARTICIPANT_TWO = 'bbbbbbbb-0000-0000-0000-000000000002';
@@ -29,10 +27,9 @@ function buildConversation(): Conversation {
   });
 }
 
-describe('ListMessagesUseCase', () => {
+describe('HideConversationUseCase', () => {
   let conversationRepository: jest.Mocked<IConversationRepository>;
-  let messageRepository: jest.Mocked<IMessageRepository>;
-  let useCase: ListMessagesUseCase;
+  let useCase: HideConversationUseCase;
 
   beforeEach(() => {
     conversationRepository = {
@@ -45,58 +42,20 @@ describe('ListMessagesUseCase', () => {
       delete: jest.fn(),
       hideForParticipant: jest.fn(),
     };
-    messageRepository = {
-      create: jest.fn(),
-      findById: jest.fn(),
-      findByConversationId: jest.fn(),
-      markAsReadForRecipient: jest.fn(),
-      hardDelete: jest.fn(),
-      softDelete: jest.fn(),
-      updateContent: jest.fn(),
-      reassignConversation: jest.fn(),
-      reassignSender: jest.fn(),
-    };
-    useCase = new ListMessagesUseCase(
-      conversationRepository,
-      messageRepository,
-    );
+    useCase = new HideConversationUseCase(conversationRepository);
   });
 
-  it('returns the paginated history for a participant', async () => {
+  it('hides the conversation for the requesting participant', async () => {
     conversationRepository.findById.mockResolvedValue(buildConversation());
-    const messages = [
-      new Message({
-        id: 'msg-1',
-        conversationId: 'conv-1',
-        senderId: PARTICIPANT_ONE,
-        type: 'text',
-        content: 'hola',
-        documentUrl: null,
-        documentName: null,
-        documentMimeType: null,
-        documentSizeBytes: null,
-        readAt: null,
-        deletedAt: null,
-        editedAt: null,
-        createdAt: new Date('2026-01-02T00:00:00.000Z'),
-        updatedAt: new Date('2026-01-02T00:00:00.000Z'),
-      }),
-    ];
-    messageRepository.findByConversationId.mockResolvedValue(messages);
 
-    const result = await useCase.execute({
+    await useCase.execute({
       conversationId: 'conv-1',
       requesterId: PARTICIPANT_ONE,
-      limit: 50,
     });
 
-    expect(result).toBe(messages);
-    expect(messageRepository.findByConversationId).toHaveBeenCalledWith(
+    expect(conversationRepository.hideForParticipant).toHaveBeenCalledWith(
       'conv-1',
-      {
-        before: undefined,
-        limit: 50,
-      },
+      PARTICIPANT_ONE,
     );
   });
 
@@ -107,21 +66,17 @@ describe('ListMessagesUseCase', () => {
       useCase.execute({
         conversationId: 'missing',
         requesterId: PARTICIPANT_ONE,
-        limit: 50,
       }),
     ).rejects.toThrow(ConversationNotFoundError);
+    expect(conversationRepository.hideForParticipant).not.toHaveBeenCalled();
   });
 
   it('rejects when the requester is not a participant', async () => {
     conversationRepository.findById.mockResolvedValue(buildConversation());
 
     await expect(
-      useCase.execute({
-        conversationId: 'conv-1',
-        requesterId: OUTSIDER,
-        limit: 50,
-      }),
+      useCase.execute({ conversationId: 'conv-1', requesterId: OUTSIDER }),
     ).rejects.toThrow(NotConversationParticipantError);
-    expect(messageRepository.findByConversationId).not.toHaveBeenCalled();
+    expect(conversationRepository.hideForParticipant).not.toHaveBeenCalled();
   });
 });

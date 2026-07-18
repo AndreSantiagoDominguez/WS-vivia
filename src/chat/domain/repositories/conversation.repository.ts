@@ -23,7 +23,19 @@ export interface IConversationRepository {
 
   create(data: NewConversationData): Promise<Conversation>;
 
+  /**
+   * Conversaciones visibles para `userId`: excluye las que ese participante
+   * ocultó (ver `hideForParticipant`), salvo que haya actividad nueva desde
+   * que las ocultó — en ese caso reaparecen solas.
+   */
   findAllForUser(userId: string): Promise<Conversation[]>;
+
+  /**
+   * "Borra" la conversación solo para `userId` (soft, por participante) —
+   * el otro participante no se entera ni pierde su copia. Si más adelante
+   * hay un mensaje nuevo, vuelve a aparecer en `findAllForUser` para `userId`.
+   */
+  hideForParticipant(conversationId: string, userId: string): Promise<void>;
 
   updateLastMessageAt(
     conversationId: string,

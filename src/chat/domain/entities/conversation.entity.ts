@@ -7,6 +7,8 @@ export interface ConversationProps {
   propertyId: string | null;
   propertyTitle: string | null;
   lastMessageAt: Date | null;
+  hiddenForParticipantOneAt: Date | null;
+  hiddenForParticipantTwoAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -26,6 +28,8 @@ export class Conversation {
   readonly propertyId: string | null;
   readonly propertyTitle: string | null;
   lastMessageAt: Date | null;
+  readonly hiddenForParticipantOneAt: Date | null;
+  readonly hiddenForParticipantTwoAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -38,6 +42,8 @@ export class Conversation {
     this.propertyId = props.propertyId;
     this.propertyTitle = props.propertyTitle;
     this.lastMessageAt = props.lastMessageAt;
+    this.hiddenForParticipantOneAt = props.hiddenForParticipantOneAt;
+    this.hiddenForParticipantTwoAt = props.hiddenForParticipantTwoAt;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }

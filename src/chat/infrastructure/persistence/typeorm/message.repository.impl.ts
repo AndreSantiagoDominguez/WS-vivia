@@ -33,6 +33,11 @@ export class TypeOrmMessageRepository implements IMessageRepository {
     return messageToDomain(saved);
   }
 
+  async findById(id: string): Promise<Message | null> {
+    const found = await this.repository.findOneBy({ id });
+    return found ? messageToDomain(found) : null;
+  }
+
   async findByConversationId(
     conversationId: string,
     options: ListMessagesOptions,
@@ -61,6 +66,36 @@ export class TypeOrmMessageRepository implements IMessageRepository {
       .andWhere('read_at IS NULL')
       .execute();
     return result.affected ?? 0;
+  }
+
+  async hardDelete(id: string): Promise<void> {
+    await this.repository.delete({ id });
+  }
+
+  async softDelete(id: string, deletedAt: Date): Promise<Message> {
+    await this.repository.update(
+      { id },
+      {
+        content: null,
+        documentUrl: null,
+        documentName: null,
+        documentMimeType: null,
+        documentSizeBytes: null,
+        deletedAt,
+      },
+    );
+    const updated = await this.repository.findOneByOrFail({ id });
+    return messageToDomain(updated);
+  }
+
+  async updateContent(
+    id: string,
+    content: string,
+    editedAt: Date,
+  ): Promise<Message> {
+    await this.repository.update({ id }, { content, editedAt });
+    const updated = await this.repository.findOneByOrFail({ id });
+    return messageToDomain(updated);
   }
 
   async reassignConversation(

@@ -22,11 +22,26 @@ export interface ListMessagesOptions {
 export interface IMessageRepository {
   create(data: NewMessageData): Promise<Message>;
 
+  findById(id: string): Promise<Message | null>;
+
   /** Historial paginado, más reciente primero. */
   findByConversationId(
     conversationId: string,
     options: ListMessagesOptions,
   ): Promise<Message[]>;
+
+  /** Borrado sin rastro (< 1 min de creado) — elimina la fila por completo. */
+  hardDelete(id: string): Promise<void>;
+
+  /**
+   * Borrado "con rastro" (1-5 min de creado): limpia el contenido/documento
+   * y marca `deletedAt`, pero conserva la fila para que el cliente pueda
+   * mostrar el placeholder "mensaje eliminado".
+   */
+  softDelete(id: string, deletedAt: Date): Promise<Message>;
+
+  /** Edita el texto de un mensaje (solo `type === 'text'`) y marca `editedAt`. */
+  updateContent(id: string, content: string, editedAt: Date): Promise<Message>;
 
   /**
    * Marca como leídos todos los mensajes de `conversationId` que NO fueron

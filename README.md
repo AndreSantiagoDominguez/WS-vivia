@@ -70,16 +70,37 @@ Sin concepto nativo de "evento": cada mensaje es un frame de texto con JSON plan
 | `newMessage` | `{ conversationId, content }` | Mensaje de texto (1–4000 caracteres). |
 | `typing` | `{ conversationId }` | No persiste nada. |
 | `markRead` | `{ conversationId }` | **No es un botón ni una acción manual del usuario** — el cliente lo manda automáticamente apenas abre la pantalla de esa conversación puntual (justo después de recibir `joined`). Las demás conversaciones de la lista no se tocan hasta que el usuario también entre a esas. |
+| `deleteMessage` | `{ messageId }` | Solo el remitente puede borrar su propio mensaje, y solo dentro de la ventana de tiempo — ver [Borrar y editar mensajes](#borrar-y-editar-mensajes). |
+| `editMessage` | `{ messageId, content }` | Solo el remitente, solo mensajes de texto, solo dentro de la ventana de tiempo. |
 
 ### Eventos que el servidor puede mandar
 
 | Evento | Payload |
 |---|---|
 | `joined` | `{ conversationId }` |
-| `newMessage` | `{ id, conversationId, senderId, type, content, documentUrl, documentName, documentMimeType, documentSizeBytes, readAt, createdAt }` — mismo evento para mensajes de texto (`type: "text"`) y de documento (`type: "document"`). |
+| `newMessage` | `{ id, conversationId, senderId, type, content, documentUrl, documentName, documentMimeType, documentSizeBytes, readAt, deletedAt, editedAt, createdAt }` — mismo evento para mensajes de texto (`type: "text"`) y de documento (`type: "document"`). |
 | `typing` | `{ conversationId, userId }` — nunca se le manda de vuelta a quien lo originó. |
 | `messagesRead` | `{ conversationId, userId }` — `userId` es quien marcó como leído (así el otro lado sabe que *sus* mensajes fueron vistos). |
+| `messageDeleted` | `{ conversationId, messageId, hardDeleted, message? }` — `hardDeleted: true` significa que el cliente debe quitar `messageId` de su UI sin dejar rastro; `hardDeleted: false` trae `message` con `deletedAt` puesto, para mostrar el placeholder "mensaje eliminado". |
+| `messageEdited` | Mismo shape que `newMessage`, con `editedAt` puesto — el cliente debe mostrar "(editado)". |
 | `error` | `{ reason }` |
+
+### Borrar y editar mensajes
+
+Reglas de negocio (no es el patrón casual de WhatsApp — acá hay negocios de por medio, así que el borrado deja rastro salvo que sea prácticamente instantáneo):
+
+| Acción | Ventana | Efecto |
+|---|---|---|
+| Borrar | < 1 min desde `createdAt` | Se asume que nadie lo vio — se borra la fila completa, `messageDeleted` con `hardDeleted: true`. |
+| Borrar | 1–5 min desde `createdAt` | Es probable que ya se haya leído — se conserva un placeholder (`messageDeleted` con `hardDeleted: false` y `message.deletedAt` puesto). |
+| Borrar | > 5 min | Ya no se puede borrar. |
+| Editar | ≤ 10 min desde `createdAt`, solo `type: "text"` | Actualiza `content` y marca `editedAt`. Los documentos no se editan, solo se borran. |
+
+Solo el remitente puede borrar/editar su propio mensaje — cualquier otro intento (o fuera de ventana) responde con `error`.
+
+### Borrar una conversación
+
+`DELETE /chat/conversations/:id` (REST, no WebSocket) oculta la conversación **solo para quien la pide** — el otro participante conserva su copia intacta, mensajes incluidos. Si después llega un mensaje nuevo, la conversación reaparece sola en `GET /chat/conversations` para quien la había ocultado (igual que WhatsApp).
 
 ### Salas manuales (`ConnectionRegistryService`)
 
@@ -107,8 +128,8 @@ Además de mensajes de texto, una conversación acepta el envío de documentos (
 
 Todo vive en el mismo Postgres que el resto de Vivia, en un schema separado `chat` (sin foreign keys reales hacia usuarios/propiedades, que viven en Spring Boot — solo se guardan UUID + snapshots de texto).
 
-- **`chat.conversations`**: `id`, `participant_one_id`/`participant_two_id` (el menor de los dos UUID siempre en `_one`, para que el índice único `(participant_one_id, participant_two_id)` sea determinístico sin importar quién inició la conversación), roles, `property_id`/`property_title` (snapshot, sin FK), `last_message_at`, timestamps.
-- **`chat.messages`**: `id`, `conversation_id` (FK real, `ON DELETE CASCADE`), `sender_id`, `type` (`text` | `document`), `content` (texto o caption opcional), campos `document_*`, `read_at`, timestamps.
+- **`chat.conversations`**: `id`, `participant_one_id`/`participant_two_id` (el menor de los dos UUID siempre en `_one`, para que el índice único `(participant_one_id, participant_two_id)` sea determinístico sin importar quién inició la conversación), roles, `property_id`/`property_title` (snapshot, sin FK), `last_message_at`, `hidden_for_participant_one_at`/`hidden_for_participant_two_at` (borrado por participante, ver [Borrar una conversación](#borrar-una-conversación)), timestamps.
+- **`chat.messages`**: `id`, `conversation_id` (FK real, `ON DELETE CASCADE`), `sender_id`, `type` (`text` | `document`), `content` (texto o caption opcional), campos `document_*`, `read_at`, `deleted_at`, `edited_at`, timestamps.
 - **`chat.user_identities`**: `email` (PK), `user_id`, `is_temporary`, `updated_at` — ver [Identidad temporal](#identidad-temporal-por-email).
 
 ## Endpoints REST
@@ -120,6 +141,7 @@ Todos (salvo `/health`) requieren `Authorization: Bearer <jwt>` y usan el mismo 
 | `GET` | `/chat/conversations` | Lista las conversaciones del usuario autenticado. |
 | `GET` | `/chat/conversations/:id/messages?before&limit` | Historial paginado (más reciente primero). |
 | `POST` | `/chat/conversations` | Obtiene la conversación con otro usuario, creándola si no existe (`otherUserId`, `otherUserRole`, `propertyId?`, `propertyTitle?`). |
+| `DELETE` | `/chat/conversations/:id` | Oculta la conversación solo para el usuario autenticado (`204`) — ver [Borrar una conversación](#borrar-una-conversación). |
 | `POST` | `/chat/conversations/:id/documents` | Sube un documento (`multipart/form-data`, campo `file` + `caption` opcional). |
 | `GET` | `/health` | Sin auth. Confirma que el proceso responde y que Postgres está alcanzable (`200` u `503`). Pensado para que el VPS/CI-CD decida si un deploy quedó sano. |
 

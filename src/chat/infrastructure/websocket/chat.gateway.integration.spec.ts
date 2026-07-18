@@ -7,6 +7,8 @@ import { Server } from 'http';
 import { AddressInfo } from 'net';
 import { WebSocket } from 'ws';
 import { CreateMessageUseCase } from '../../application/use-cases/create-message.use-case';
+import { DeleteMessageUseCase } from '../../application/use-cases/delete-message.use-case';
+import { EditMessageUseCase } from '../../application/use-cases/edit-message.use-case';
 import { MarkMessagesReadUseCase } from '../../application/use-cases/mark-messages-read.use-case';
 import { ReconcileTemporaryIdentityUseCase } from '../../application/use-cases/reconcile-temporary-identity.use-case';
 import { Conversation } from '../../domain/entities/conversation.entity';
@@ -58,6 +60,8 @@ class InMemoryConversationRepository implements IConversationRepository {
       id: 'generated',
       ...data,
       lastMessageAt: null,
+      hiddenForParticipantOneAt: null,
+      hiddenForParticipantTwoAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -108,6 +112,25 @@ class InMemoryConversationRepository implements IConversationRepository {
     this.conversations.delete(conversationId);
     return Promise.resolve();
   }
+
+  hideForParticipant(conversationId: string, userId: string): Promise<void> {
+    const existing = this.conversations.get(conversationId);
+    if (!existing) return Promise.resolve();
+    const isParticipantOne = existing.participantOneId === userId;
+    this.conversations.set(
+      conversationId,
+      new Conversation({
+        ...existing,
+        hiddenForParticipantOneAt: isParticipantOne
+          ? new Date()
+          : existing.hiddenForParticipantOneAt,
+        hiddenForParticipantTwoAt: !isParticipantOne
+          ? new Date()
+          : existing.hiddenForParticipantTwoAt,
+      }),
+    );
+    return Promise.resolve();
+  }
 }
 
 class InMemoryMessageRepository implements IMessageRepository {
@@ -125,11 +148,46 @@ class InMemoryMessageRepository implements IMessageRepository {
       documentMimeType: data.documentMimeType ?? null,
       documentSizeBytes: data.documentSizeBytes ?? null,
       readAt: null,
+      deletedAt: null,
+      editedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
     this.messages.set(message.id, message);
     return Promise.resolve(message);
+  }
+
+  findById(id: string): Promise<Message | null> {
+    return Promise.resolve(this.messages.get(id) ?? null);
+  }
+
+  hardDelete(id: string): Promise<void> {
+    this.messages.delete(id);
+    return Promise.resolve();
+  }
+
+  softDelete(id: string, deletedAt: Date): Promise<Message> {
+    const existing = this.messages.get(id);
+    if (!existing) throw new Error(`Message ${id} not found`);
+    const updated = new Message({
+      ...existing,
+      content: null,
+      documentUrl: null,
+      documentName: null,
+      documentMimeType: null,
+      documentSizeBytes: null,
+      deletedAt,
+    });
+    this.messages.set(id, updated);
+    return Promise.resolve(updated);
+  }
+
+  updateContent(id: string, content: string, editedAt: Date): Promise<Message> {
+    const existing = this.messages.get(id);
+    if (!existing) throw new Error(`Message ${id} not found`);
+    const updated = new Message({ ...existing, content, editedAt });
+    this.messages.set(id, updated);
+    return Promise.resolve(updated);
   }
 
   findByConversationId(
@@ -272,6 +330,8 @@ describe('ChatGateway (integration, real ws client)', () => {
         propertyId: null,
         propertyTitle: null,
         lastMessageAt: null,
+        hiddenForParticipantOneAt: null,
+        hiddenForParticipantTwoAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),
@@ -286,6 +346,8 @@ describe('ChatGateway (integration, real ws client)', () => {
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
         CreateMessageUseCase,
         MarkMessagesReadUseCase,
+        DeleteMessageUseCase,
+        EditMessageUseCase,
         ReconcileTemporaryIdentityUseCase,
         { provide: CONVERSATION_REPOSITORY, useValue: conversationRepository },
         { provide: MESSAGE_REPOSITORY, useValue: messageRepository },
@@ -425,6 +487,8 @@ describe('ChatGateway (integration, real ws client)', () => {
         propertyId: null,
         propertyTitle: null,
         lastMessageAt: null,
+        hiddenForParticipantOneAt: null,
+        hiddenForParticipantTwoAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       }),

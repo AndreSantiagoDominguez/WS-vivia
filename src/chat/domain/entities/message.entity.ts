@@ -11,6 +11,8 @@ export interface MessageProps {
   documentMimeType: string | null;
   documentSizeBytes: number | null;
   readAt: Date | null;
+  deletedAt: Date | null;
+  editedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,6 +22,12 @@ export interface MessageProps {
  * `content` es el texto del mensaje cuando `type === 'text'`, o un caption
  * opcional cuando `type === 'document'`. Los campos `document*` solo se
  * completan para mensajes de documento.
+ *
+ * `deletedAt` marca un borrado "con rastro" (entre 1 y 5 minutos después de
+ * `createdAt`) — el contenido ya se limpió en el repositorio, este campo solo
+ * indica al cliente que renderice el placeholder "mensaje eliminado". Un
+ * borrado dentro del primer minuto no pasa por aquí: la fila se elimina por
+ * completo (ver `DeleteMessageUseCase`).
  */
 export class Message {
   readonly id: string;
@@ -32,6 +40,8 @@ export class Message {
   readonly documentMimeType: string | null;
   readonly documentSizeBytes: number | null;
   readAt: Date | null;
+  readonly deletedAt: Date | null;
+  readonly editedAt: Date | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 
@@ -46,11 +56,17 @@ export class Message {
     this.documentMimeType = props.documentMimeType;
     this.documentSizeBytes = props.documentSizeBytes;
     this.readAt = props.readAt;
+    this.deletedAt = props.deletedAt;
+    this.editedAt = props.editedAt;
     this.createdAt = props.createdAt;
     this.updatedAt = props.updatedAt;
   }
 
   get isRead(): boolean {
     return this.readAt !== null;
+  }
+
+  get isDeleted(): boolean {
+    return this.deletedAt !== null;
   }
 }

@@ -2,7 +2,10 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CreateDocumentMessageUseCase } from './application/use-cases/create-document-message.use-case';
 import { CreateMessageUseCase } from './application/use-cases/create-message.use-case';
+import { DeleteMessageUseCase } from './application/use-cases/delete-message.use-case';
+import { EditMessageUseCase } from './application/use-cases/edit-message.use-case';
 import { GetOrCreateConversationUseCase } from './application/use-cases/get-or-create-conversation.use-case';
+import { HideConversationUseCase } from './application/use-cases/hide-conversation.use-case';
 import { ListConversationsForUserUseCase } from './application/use-cases/list-conversations-for-user.use-case';
 import { ListMessagesUseCase } from './application/use-cases/list-messages.use-case';
 import { MarkMessagesReadUseCase } from './application/use-cases/mark-messages-read.use-case';
@@ -53,6 +56,9 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
     MarkMessagesReadUseCase,
     ListConversationsForUserUseCase,
     ReconcileTemporaryIdentityUseCase,
+    DeleteMessageUseCase,
+    EditMessageUseCase,
+    HideConversationUseCase,
     DocumentStorageService,
   ],
 })

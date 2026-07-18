@@ -2,10 +2,13 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   FileTypeValidator,
   ForbiddenException,
   Get,
+  HttpCode,
   HttpException,
+  HttpStatus,
   InternalServerErrorException,
   MaxFileSizeValidator,
   NotFoundException,
@@ -30,6 +33,7 @@ import {
 } from '@nestjs/swagger';
 import { CreateDocumentMessageUseCase } from '../../application/use-cases/create-document-message.use-case';
 import { GetOrCreateConversationUseCase } from '../../application/use-cases/get-or-create-conversation.use-case';
+import { HideConversationUseCase } from '../../application/use-cases/hide-conversation.use-case';
 import { ListConversationsForUserUseCase } from '../../application/use-cases/list-conversations-for-user.use-case';
 import { ListMessagesUseCase } from '../../application/use-cases/list-messages.use-case';
 import {
@@ -73,6 +77,7 @@ export class ChatController {
     private readonly listConversationsForUserUseCase: ListConversationsForUserUseCase,
     private readonly listMessagesUseCase: ListMessagesUseCase,
     private readonly getOrCreateConversationUseCase: GetOrCreateConversationUseCase,
+    private readonly hideConversationUseCase: HideConversationUseCase,
     private readonly createDocumentMessageUseCase: CreateDocumentMessageUseCase,
     private readonly documentStorageService: DocumentStorageService,
     private readonly connectionRegistry: ConnectionRegistryService,
@@ -133,6 +138,27 @@ export class ChatController {
         propertyTitle: body.propertyTitle ?? null,
       });
       return this.toConversationResponse(conversation);
+    } catch (error) {
+      throw this.mapDomainError(error);
+    }
+  }
+
+  @Delete('conversations/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary:
+      'Oculta la conversación solo para el usuario autenticado (no la borra para el otro participante). Reaparece sola si llega un mensaje nuevo.',
+  })
+  @ApiResponse({ status: 204, description: 'Conversación ocultada.' })
+  async hideConversation(
+    @Req() request: AuthenticatedRequest,
+    @Param('id', ParseUUIDPipe) conversationId: string,
+  ): Promise<void> {
+    try {
+      await this.hideConversationUseCase.execute({
+        conversationId,
+        requesterId: request.user.userId,
+      });
     } catch (error) {
       throw this.mapDomainError(error);
     }
@@ -244,6 +270,8 @@ export class ChatController {
       documentMimeType: message.documentMimeType,
       documentSizeBytes: message.documentSizeBytes,
       readAt: message.readAt,
+      deletedAt: message.deletedAt,
+      editedAt: message.editedAt,
       createdAt: message.createdAt,
       updatedAt: message.updatedAt,
     };

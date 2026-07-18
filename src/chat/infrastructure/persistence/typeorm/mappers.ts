@@ -13,6 +13,8 @@ export function conversationToDomain(orm: ConversationOrmEntity): Conversation {
     propertyId: orm.propertyId,
     propertyTitle: orm.propertyTitle,
     lastMessageAt: orm.lastMessageAt,
+    hiddenForParticipantOneAt: orm.hiddenForParticipantOneAt,
+    hiddenForParticipantTwoAt: orm.hiddenForParticipantTwoAt,
     createdAt: orm.createdAt,
     updatedAt: orm.updatedAt,
   });
@@ -30,6 +32,8 @@ export function messageToDomain(orm: MessageOrmEntity): Message {
     documentMimeType: orm.documentMimeType,
     documentSizeBytes: orm.documentSizeBytes,
     readAt: orm.readAt,
+    deletedAt: orm.deletedAt,
+    editedAt: orm.editedAt,
     createdAt: orm.createdAt,
     updatedAt: orm.updatedAt,
   });

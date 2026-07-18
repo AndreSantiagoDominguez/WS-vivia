@@ -19,6 +19,8 @@ function buildConversation(
     propertyId: null,
     propertyTitle: null,
     lastMessageAt: null,
+    hiddenForParticipantOneAt: null,
+    hiddenForParticipantTwoAt: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
@@ -39,11 +41,16 @@ describe('ReconcileTemporaryIdentityUseCase', () => {
       updateLastMessageAt: jest.fn(),
       reassignParticipants: jest.fn(),
       delete: jest.fn(),
+      hideForParticipant: jest.fn(),
     };
     messageRepository = {
       create: jest.fn(),
+      findById: jest.fn(),
       findByConversationId: jest.fn(),
       markAsReadForRecipient: jest.fn(),
+      hardDelete: jest.fn(),
+      softDelete: jest.fn(),
+      updateContent: jest.fn(),
       reassignConversation: jest.fn(),
       reassignSender: jest.fn(),
     };

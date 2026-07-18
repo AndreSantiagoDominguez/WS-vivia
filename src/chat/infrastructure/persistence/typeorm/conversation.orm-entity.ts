@@ -36,6 +36,23 @@ export class ConversationOrmEntity {
   @Column({ name: 'last_message_at', type: 'timestamptz', nullable: true })
   lastMessageAt: Date | null;
 
+  // "Borrar chat" es por participante, no destructivo: cada quien puede
+  // ocultarlo de su propia lista sin afectar al otro. Si llega actividad
+  // nueva después de este timestamp, reaparece solo (ver `findAllForUser`).
+  @Column({
+    name: 'hidden_for_participant_one_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  hiddenForParticipantOneAt: Date | null;
+
+  @Column({
+    name: 'hidden_for_participant_two_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  hiddenForParticipantTwoAt: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
 

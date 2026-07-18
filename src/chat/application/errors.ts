@@ -36,3 +36,45 @@ export class InvalidCaptionError extends Error {
     this.name = 'InvalidCaptionError';
   }
 }
+
+export class MessageNotFoundError extends Error {
+  constructor(messageId: string) {
+    super(`Message ${messageId} not found`);
+    this.name = 'MessageNotFoundError';
+  }
+}
+
+export class NotMessageSenderError extends Error {
+  constructor() {
+    super('Only the sender of a message can delete or edit it');
+    this.name = 'NotMessageSenderError';
+  }
+}
+
+export class MessageAlreadyDeletedError extends Error {
+  constructor() {
+    super('This message was already deleted');
+    this.name = 'MessageAlreadyDeletedError';
+  }
+}
+
+export class MessageDeleteWindowExpiredError extends Error {
+  constructor() {
+    super('This message can no longer be deleted (older than 5 minutes)');
+    this.name = 'MessageDeleteWindowExpiredError';
+  }
+}
+
+export class MessageEditWindowExpiredError extends Error {
+  constructor() {
+    super('This message can no longer be edited (older than 10 minutes)');
+    this.name = 'MessageEditWindowExpiredError';
+  }
+}
+
+export class CannotEditDocumentMessageError extends Error {
+  constructor() {
+    super('Document messages cannot be edited, only deleted');
+    this.name = 'CannotEditDocumentMessageError';
+  }
+}
