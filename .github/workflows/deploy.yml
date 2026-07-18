@@ -26,9 +26,9 @@ jobs:
 
       - name: Sincronizar archivos al servidor
         run: |
-          rsync -az --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' \
-            -e "ssh -i ~/.ssh/rsync_key" \
-            ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:~/vps/WS-vivia/"
+          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' \
+            -e "ssh -i ~/.ssh/rsync_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" \
+            ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:"
 
       - name: Desplegar
         env:
