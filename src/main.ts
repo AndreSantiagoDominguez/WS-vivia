@@ -40,7 +40,9 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument);
+  // Montado en chat/docs para quedar bajo el prefijo que el gateway reescribe:
+  // https://vivia.aleosh.online/api/chat/docs → nginx → /chat/docs
+  SwaggerModule.setup('chat/docs', app, swaggerDocument);
 
   const port = process.env.PORT ? Number(process.env.PORT) : 3001;
   await app.listen(port);
