@@ -26,6 +26,22 @@ export class ConversationResponseDto {
   @ApiPropertyOptional({ format: 'date-time', nullable: true })
   lastMessageAt: Date | null;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Preview del mensaje más reciente real — null si no hay mensajes, o si el más reciente se borró.',
+  })
+  lastMessageContent: string | null;
+
+  @ApiPropertyOptional({ enum: ['text', 'document'], nullable: true })
+  lastMessageType: 'text' | 'document' | null;
+
+  @ApiProperty({
+    description:
+      'Mensajes de esta conversación que no mandó el usuario autenticado y todavía no tienen readAt.',
+  })
+  unreadCount: number;
+
   @ApiProperty({ format: 'date-time' })
   createdAt: Date;
 

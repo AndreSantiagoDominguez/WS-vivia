@@ -42,6 +42,7 @@ describe('ReconcileTemporaryIdentityUseCase', () => {
       reassignParticipants: jest.fn(),
       delete: jest.fn(),
       hideForParticipant: jest.fn(),
+      findConversationSummariesForUser: jest.fn(),
     };
     messageRepository = {
       create: jest.fn(),

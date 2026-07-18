@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Conversation } from '../../domain/entities/conversation.entity';
 import {
   CONVERSATION_REPOSITORY,
+  ConversationSummary,
   IConversationRepository,
 } from '../../domain/repositories/conversation.repository';
 
@@ -12,7 +12,7 @@ export class ListConversationsForUserUseCase {
     private readonly conversationRepository: IConversationRepository,
   ) {}
 
-  async execute(userId: string): Promise<Conversation[]> {
-    return this.conversationRepository.findAllForUser(userId);
+  async execute(userId: string): Promise<ConversationSummary[]> {
+    return this.conversationRepository.findConversationSummariesForUser(userId);
   }
 }

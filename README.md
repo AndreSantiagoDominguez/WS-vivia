@@ -138,7 +138,7 @@ Todos (salvo `/health`) requieren `Authorization: Bearer <jwt>` y usan el mismo 
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/chat/conversations` | Lista las conversaciones del usuario autenticado. |
+| `GET` | `/chat/conversations` | Lista las conversaciones del usuario autenticado. Cada una incluye `lastMessageContent`/`lastMessageType` (preview calculado en vivo contra el mensaje más reciente real — nunca queda desactualizado, ni con ediciones ni con borrados) y `unreadCount` (mensajes de esa conversación que no mandó el usuario autenticado y siguen sin `readAt`). No incluye nombre/avatar del otro participante — eso vive en Spring, el chat solo conoce UUIDs. |
 | `GET` | `/chat/conversations/:id/messages?before&limit` | Historial paginado (más reciente primero). |
 | `POST` | `/chat/conversations` | Obtiene la conversación con otro usuario, creándola si no existe (`otherUserId`, `otherUserRole`, `propertyId?`, `propertyTitle?`). |
 | `DELETE` | `/chat/conversations/:id` | Oculta la conversación solo para el usuario autenticado (`204`) — ver [Borrar una conversación](#borrar-una-conversación). |

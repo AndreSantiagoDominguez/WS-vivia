@@ -1,4 +1,5 @@
 import { Conversation } from '../entities/conversation.entity';
+import { MessageType } from '../entities/message.entity';
 
 /** Token de inyección de dependencias — la interfaz no puede usarse como valor en Nest. */
 export const CONVERSATION_REPOSITORY = Symbol('CONVERSATION_REPOSITORY');
@@ -10,6 +11,21 @@ export interface NewConversationData {
   participantTwoRole: string;
   propertyId: string | null;
   propertyTitle: string | null;
+}
+
+/**
+ * Proyección de una conversación para la lista (`GET /conversations`) — no es
+ * un valor persistido: `lastMessageContent`/`lastMessageType` se calculan al
+ * vuelo contra el mensaje más reciente real (así reflejan automáticamente si
+ * ese mensaje se editó o se borró, sin tener que mantener una copia
+ * desnormalizada sincronizada en cada mutación). `unreadCount` es relativo a
+ * quien pide la lista, nunca un valor propio de la conversación.
+ */
+export interface ConversationSummary {
+  conversation: Conversation;
+  lastMessageContent: string | null;
+  lastMessageType: MessageType | null;
+  unreadCount: number;
 }
 
 export interface IConversationRepository {
@@ -29,6 +45,14 @@ export interface IConversationRepository {
    * que las ocultó — en ese caso reaparecen solas.
    */
   findAllForUser(userId: string): Promise<Conversation[]>;
+
+  /**
+   * Igual que `findAllForUser`, pero para la pantalla de lista: agrega el
+   * preview del último mensaje real y el conteo de no leídos de `userId`.
+   */
+  findConversationSummariesForUser(
+    userId: string,
+  ): Promise<ConversationSummary[]>;
 
   /**
    * "Borra" la conversación solo para `userId` (soft, por participante) —

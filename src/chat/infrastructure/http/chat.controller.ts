@@ -42,8 +42,8 @@ import {
   NotConversationParticipantError,
   SameParticipantError,
 } from '../../application/errors';
-import { Conversation } from '../../domain/entities/conversation.entity';
 import { Message } from '../../domain/entities/message.entity';
+import { ConversationSummary } from '../../domain/repositories/conversation.repository';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
 import { HttpAuthGuard } from '../auth/http-auth.guard';
 import { DocumentStorageService } from '../storage/document-storage.service';
@@ -89,12 +89,10 @@ export class ChatController {
   })
   @ApiResponse({ status: 200, type: [ConversationResponseDto] })
   async listConversations(@Req() request: AuthenticatedRequest) {
-    const conversations = await this.listConversationsForUserUseCase.execute(
+    const summaries = await this.listConversationsForUserUseCase.execute(
       request.user.userId,
     );
-    return conversations.map((conversation) =>
-      this.toConversationResponse(conversation),
-    );
+    return summaries.map((summary) => this.toConversationResponse(summary));
   }
 
   @Get('conversations/:id/messages')
@@ -137,7 +135,12 @@ export class ChatController {
         propertyId: body.propertyId ?? null,
         propertyTitle: body.propertyTitle ?? null,
       });
-      return this.toConversationResponse(conversation);
+      return this.toConversationResponse({
+        conversation,
+        lastMessageContent: null,
+        lastMessageType: null,
+        unreadCount: 0,
+      });
     } catch (error) {
       throw this.mapDomainError(error);
     }
@@ -243,7 +246,8 @@ export class ChatController {
     return new InternalServerErrorException();
   }
 
-  private toConversationResponse(conversation: Conversation) {
+  private toConversationResponse(summary: ConversationSummary) {
+    const { conversation } = summary;
     return {
       id: conversation.id,
       participantOneId: conversation.participantOneId,
@@ -253,6 +257,9 @@ export class ChatController {
       propertyId: conversation.propertyId,
       propertyTitle: conversation.propertyTitle,
       lastMessageAt: conversation.lastMessageAt,
+      lastMessageContent: summary.lastMessageContent,
+      lastMessageType: summary.lastMessageType,
+      unreadCount: summary.unreadCount,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
     };

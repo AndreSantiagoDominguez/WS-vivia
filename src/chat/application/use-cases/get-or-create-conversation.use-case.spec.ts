@@ -37,6 +37,7 @@ describe('GetOrCreateConversationUseCase', () => {
       reassignParticipants: jest.fn(),
       delete: jest.fn(),
       hideForParticipant: jest.fn(),
+      findConversationSummariesForUser: jest.fn(),
     };
     useCase = new GetOrCreateConversationUseCase(repository);
   });

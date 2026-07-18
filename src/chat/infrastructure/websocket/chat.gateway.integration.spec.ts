@@ -15,6 +15,7 @@ import { Conversation } from '../../domain/entities/conversation.entity';
 import { Message } from '../../domain/entities/message.entity';
 import {
   CONVERSATION_REPOSITORY,
+  ConversationSummary,
   IConversationRepository,
   NewConversationData,
 } from '../../domain/repositories/conversation.repository';
@@ -74,6 +75,19 @@ class InMemoryConversationRepository implements IConversationRepository {
       [...this.conversations.values()].filter((conversation) =>
         conversation.hasParticipant(userId),
       ),
+    );
+  }
+
+  findConversationSummariesForUser(
+    userId: string,
+  ): Promise<ConversationSummary[]> {
+    return this.findAllForUser(userId).then((conversations) =>
+      conversations.map((conversation) => ({
+        conversation,
+        lastMessageContent: null,
+        lastMessageType: null,
+        unreadCount: 0,
+      })),
     );
   }
 

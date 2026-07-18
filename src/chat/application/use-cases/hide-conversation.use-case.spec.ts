@@ -41,6 +41,7 @@ describe('HideConversationUseCase', () => {
       reassignParticipants: jest.fn(),
       delete: jest.fn(),
       hideForParticipant: jest.fn(),
+      findConversationSummariesForUser: jest.fn(),
     };
     useCase = new HideConversationUseCase(conversationRepository);
   });
