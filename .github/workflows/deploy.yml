@@ -8,9 +8,9 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Environment Secrets requeridos: EC2_HOST, EC2_USERNAME, EC2_SSH_KEY,
-    # DATABASE_URL, DATABASE_SSL, JWT_SECRET (compartido con el backend Spring),
-    # CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+    # Secrets requeridos: EC2_HOST, EC2_USERNAME, EC2_RSYNC_KEY, EC2_DEPLOY_KEY,
+    # DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_CLOUD_NAME,
+    # CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
     environment: production
 
     steps:
@@ -19,46 +19,32 @@ jobs:
       - name: Configurar SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          echo "${{ secrets.EC2_RSYNC_KEY }}" > ~/.ssh/rsync_key
+          echo "${{ secrets.EC2_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/rsync_key ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
-      # El deploy del repo vps excluye WS-vivia/ de su rsync --delete, así que
-      # este directorio solo lo administra este workflow.
       - name: Sincronizar archivos al servidor
         run: |
           rsync -az --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -i ~/.ssh/rsync_key" \
             ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:~/vps/WS-vivia/"
 
       - name: Desplegar
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USERNAME }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            set -e
-            docker network create vivia_network 2>/dev/null || true
-
-            cat > ~/vps/WS-vivia/.env << EOF
-            PORT=3001
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            DATABASE_SSL=${{ secrets.DATABASE_SSL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}
-            CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}
-            CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}
-            EOF
-
-            cd ~/vps/WS-vivia
-            docker compose down --remove-orphans
-            docker compose build --no-cache
-            # Migraciones antes de levantar (la imagen conserva src/ y ts-node para esto)
-            docker compose run --rm chat npm run migration:run
-            docker compose up -d --wait
-            docker image prune -f
-
-            # nginx resuelve vivia-chat por DNS con TTL de 10s (resolver valid=10s);
-            # el reload solo acelera que tome la IP del contenedor recreado.
-            docker exec vivia-nginx nginx -s reload 2>/dev/null || true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_SSL: ${{ secrets.DATABASE_SSL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+          CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+        run: |
+          cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}"
+          PORT=3001
+          DATABASE_URL=$DATABASE_URL
+          DATABASE_SSL=$DATABASE_SSL
+          JWT_SECRET=$JWT_SECRET
+          CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
+          CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
+          CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+          EOF
