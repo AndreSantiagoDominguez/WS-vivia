@@ -55,7 +55,7 @@
  * `deleteMessage`/`editMessage`: solo el remitente puede borrar/editar su
  * propio mensaje, y solo dentro de una ventana de tiempo desde `createdAt`
  * (< 1 min: borrado sin rastro; 1-5 min: borrado con placeholder; > 5 min: ya
- * no se puede borrar. Edición: máximo 10 min, y solo mensajes de texto, no
+ * no se puede borrar. Edición: máximo 15 min, y solo mensajes de texto, no
  * documentos). Ver `DeleteMessageUseCase`/`EditMessageUseCase`.
  *
  * Sin eco duplicado: quien manda `newMessage`/`deleteMessage`/`editMessage`

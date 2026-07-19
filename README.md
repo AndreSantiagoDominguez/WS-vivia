@@ -96,7 +96,7 @@ Reglas de negocio (no es el patrón casual de WhatsApp — acá hay negocios de 
 | Borrar | < 1 min desde `createdAt` | Se asume que nadie lo vio — se borra la fila completa, `messageDeleted` con `hardDeleted: true`. |
 | Borrar | 1–5 min desde `createdAt` | Es probable que ya se haya leído — se conserva un placeholder (`messageDeleted` con `hardDeleted: false` y `message.deletedAt` puesto). |
 | Borrar | > 5 min | Ya no se puede borrar. |
-| Editar | ≤ 10 min desde `createdAt`, solo `type: "text"` | Actualiza `content` y marca `editedAt`. Los documentos no se editan, solo se borran. |
+| Editar | ≤ 15 min desde `createdAt`, solo `type: "text"` | Actualiza `content` y marca `editedAt`. Los documentos no se editan, solo se borran. |
 
 Solo el remitente puede borrar/editar su propio mensaje — cualquier otro intento (o fuera de ventana) responde con `error`.
 

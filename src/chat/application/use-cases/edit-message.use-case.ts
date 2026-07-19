@@ -19,13 +19,13 @@ export interface EditMessageInput {
   content: string;
 }
 
-const EDIT_WINDOW_MS = 10 * 60 * 1000;
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
 const MIN_CONTENT_LENGTH = 1;
 const MAX_CONTENT_LENGTH = 4000;
 
 /**
  * Solo aplica a mensajes de texto (typos/errores de dedo) — los documentos
- * no se "editan", se borran y se vuelven a mandar. Límite de 10 min desde
+ * no se "editan", se borran y se vuelven a mandar. Límite de 15 min desde
  * `createdAt`, más laxo que el de borrado porque corregir un error se nota
  * más tarde que darse cuenta de que no debiste mandar el mensaje.
  */

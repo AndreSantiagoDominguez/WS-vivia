@@ -67,7 +67,7 @@ export class MessageDeleteWindowExpiredError extends Error {
 
 export class MessageEditWindowExpiredError extends Error {
   constructor() {
-    super('This message can no longer be edited (older than 10 minutes)');
+    super('This message can no longer be edited (older than 15 minutes)');
     this.name = 'MessageEditWindowExpiredError';
   }
 }

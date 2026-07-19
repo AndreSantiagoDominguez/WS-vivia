@@ -76,9 +76,9 @@ describe('EditMessageUseCase', () => {
     );
   });
 
-  it('rejects editing a message older than 10 minutes', async () => {
+  it('rejects editing a message older than 15 minutes', async () => {
     messageRepository.findById.mockResolvedValue(
-      buildMessage({ createdAt: new Date(Date.now() - 11 * 60_000) }),
+      buildMessage({ createdAt: new Date(Date.now() - 16 * 60_000) }),
     );
 
     await expect(
