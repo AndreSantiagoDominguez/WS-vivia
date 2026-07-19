@@ -230,9 +230,14 @@ export class ChatController {
         documentSizeBytes: uploaded.bytes,
       });
 
+      // Quien subió el documento ya tiene la confirmación en esta misma
+      // respuesta HTTP — se excluye del broadcast por si también tiene esta
+      // conversación abierta por WS al mismo tiempo (si no, vería el mismo
+      // mensaje duplicado, igual que el bug que se corrigió en el gateway).
       this.connectionRegistry.broadcastToConversation(
         conversationId,
         envelope(ServerEvents.NEW_MESSAGE, toNewMessagePayload(message)),
+        request.user.userId,
       );
 
       return this.toMessageResponse(message);

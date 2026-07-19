@@ -57,6 +57,13 @@
  * (< 1 min: borrado sin rastro; 1-5 min: borrado con placeholder; > 5 min: ya
  * no se puede borrar. Edición: máximo 10 min, y solo mensajes de texto, no
  * documentos). Ver `DeleteMessageUseCase`/`EditMessageUseCase`.
+ *
+ * Sin eco duplicado: quien manda `newMessage`/`deleteMessage`/`editMessage`
+ * recibe la confirmación exactamente una vez por cada dispositivo suyo
+ * conectado (vía `ConnectionRegistryService.sendToUser`), nunca a través del
+ * broadcast a la conversación (que lo excluye a propósito). El cliente NO
+ * necesita deduplicar nada — un "echo" recibido dos veces sería un bug de
+ * este backend, no algo que el cliente deba filtrar.
  * ============================================================================
  */
 import { Inject, Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
@@ -337,9 +344,18 @@ export class ChatGateway
         content: dto.content,
       });
 
+      const eventEnvelope = envelope(
+        ServerEvents.NEW_MESSAGE,
+        toNewMessagePayload(message),
+      );
+      // El remitente se entera por acá (todos sus dispositivos, una sola vez
+      // cada uno) — el broadcast de abajo lo excluye a propósito, para que
+      // nunca vea su propio mensaje duplicado sin importar qué haga el cliente.
+      this.connectionRegistry.sendToUser(client.userId, eventEnvelope);
       this.connectionRegistry.broadcastToConversation(
         dto.conversationId,
-        envelope(ServerEvents.NEW_MESSAGE, toNewMessagePayload(message)),
+        eventEnvelope,
+        client.userId,
       );
     } catch (error) {
       this.sendError(client, this.describeError(error));
@@ -360,7 +376,7 @@ export class ChatGateway
         conversationId: dto.conversationId,
         userId: client.userId,
       }),
-      client,
+      client.userId,
     );
   }
 
@@ -377,12 +393,16 @@ export class ChatGateway
         readerId: client.userId,
       });
 
+      // El que marcó como leído no necesita enterarse de su propia acción —
+      // este evento es para que el OTRO participante vea el "visto" en sus
+      // propios mensajes.
       this.connectionRegistry.broadcastToConversation(
         dto.conversationId,
         envelope(ServerEvents.MESSAGES_READ, {
           conversationId: dto.conversationId,
           userId: client.userId,
         }),
+        client.userId,
       );
     } catch (error) {
       this.sendError(client, this.describeError(error));
@@ -419,9 +439,12 @@ export class ChatGateway
             message: toNewMessagePayload(result.message),
           };
 
+      const eventEnvelope = envelope(ServerEvents.MESSAGE_DELETED, payload);
+      this.connectionRegistry.sendToUser(client.userId, eventEnvelope);
       this.connectionRegistry.broadcastToConversation(
         payload.conversationId,
-        envelope(ServerEvents.MESSAGE_DELETED, payload),
+        eventEnvelope,
+        client.userId,
       );
     } catch (error) {
       this.sendError(client, this.describeError(error));
@@ -442,9 +465,15 @@ export class ChatGateway
         content: dto.content,
       });
 
+      const eventEnvelope = envelope(
+        ServerEvents.MESSAGE_EDITED,
+        toNewMessagePayload(message),
+      );
+      this.connectionRegistry.sendToUser(client.userId, eventEnvelope);
       this.connectionRegistry.broadcastToConversation(
         message.conversationId,
-        envelope(ServerEvents.MESSAGE_EDITED, toNewMessagePayload(message)),
+        eventEnvelope,
+        client.userId,
       );
     } catch (error) {
       this.sendError(client, this.describeError(error));

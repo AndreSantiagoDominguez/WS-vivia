@@ -85,6 +85,8 @@ Sin concepto nativo de "evento": cada mensaje es un frame de texto con JSON plan
 | `messageEdited` | Mismo shape que `newMessage`, con `editedAt` puesto — el cliente debe mostrar "(editado)". |
 | `error` | `{ reason }` |
 
+**Sin eco duplicado**: quien manda `newMessage`/`deleteMessage`/`editMessage` recibe la confirmación exactamente **una vez** por cada dispositivo suyo conectado — nunca a través del broadcast a los demás participantes (que lo excluye a propósito). El cliente no necesita deduplicar nada por su cuenta; si un cliente ve el mismo mensaje dos veces, es un bug de este backend, no algo que el cliente deba filtrar.
+
 ### Borrar y editar mensajes
 
 Reglas de negocio (no es el patrón casual de WhatsApp — acá hay negocios de por medio, así que el borrado deja rastro salvo que sea prácticamente instantáneo):

@@ -467,6 +467,67 @@ describe('ChatGateway (integration, real ws client)', () => {
     client.close();
   });
 
+  it('delivers newMessage exactly once to the sender and exactly once to the other participant (no self-echo duplication)', async () => {
+    const sender = await connectClient(
+      port,
+      signToken(`${PARTICIPANT_ID}@vivia.com`, PARTICIPANT_ID),
+    );
+    const other = await connectClient(
+      port,
+      signToken(`${OTHER_PARTICIPANT_ID}@vivia.com`, OTHER_PARTICIPANT_ID),
+    );
+
+    sender.send(
+      JSON.stringify({
+        event: 'joinConversation',
+        payload: { conversationId: CONVERSATION_ID },
+      }),
+    );
+    other.send(
+      JSON.stringify({
+        event: 'joinConversation',
+        payload: { conversationId: CONVERSATION_ID },
+      }),
+    );
+    await nextMessage(sender);
+    await nextMessage(other);
+
+    const senderMessages: TestEnvelope[] = [];
+    const otherMessages: TestEnvelope[] = [];
+    sender.on('message', (data: Buffer) =>
+      senderMessages.push(JSON.parse(data.toString()) as TestEnvelope),
+    );
+    other.on('message', (data: Buffer) =>
+      otherMessages.push(JSON.parse(data.toString()) as TestEnvelope),
+    );
+
+    sender.send(
+      JSON.stringify({
+        event: 'newMessage',
+        payload: {
+          conversationId: CONVERSATION_ID,
+          content: 'no debe duplicarse',
+        },
+      }),
+    );
+
+    // Espera a que ambos lados hayan tenido oportunidad de recibir (o no).
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    const senderNewMessages = senderMessages.filter(
+      (m) => m.event === 'newMessage',
+    );
+    const otherNewMessages = otherMessages.filter(
+      (m) => m.event === 'newMessage',
+    );
+
+    expect(senderNewMessages).toHaveLength(1);
+    expect(otherNewMessages).toHaveLength(1);
+
+    sender.close();
+    other.close();
+  });
+
   it('authenticates via Sec-WebSocket-Protocol just like via the Authorization header', async () => {
     const client = await connectClientViaProtocol(
       port,

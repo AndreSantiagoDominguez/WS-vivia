@@ -42,20 +42,38 @@ describe('ConnectionRegistryService', () => {
     expect(clientB.send).toHaveBeenCalledTimes(1);
   });
 
-  it('excludes the sender when a client is passed as excludeClient', () => {
-    const sender = buildFakeClient('user-1');
+  it('excludes every connection of excludeUserId, not just one', () => {
+    const senderDeviceA = buildFakeClient('user-1');
+    const senderDeviceB = buildFakeClient('user-1');
     const other = buildFakeClient('user-2');
-    registry.addToConversation('conv-1', sender);
+    registry.addToConversation('conv-1', senderDeviceA);
+    registry.addToConversation('conv-1', senderDeviceB);
     registry.addToConversation('conv-1', other);
 
     registry.broadcastToConversation(
       'conv-1',
       { event: 'typing', payload: {} },
-      sender,
+      'user-1',
     );
 
-    expect(sender.send).not.toHaveBeenCalled();
+    expect(senderDeviceA.send).not.toHaveBeenCalled();
+    expect(senderDeviceB.send).not.toHaveBeenCalled();
     expect(other.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('sendToUser reaches every device of that user and no one else', () => {
+    registry.registerConnection(buildFakeClient('user-1'));
+    const deviceA = [...registry.getAllClients()][0];
+    const deviceB = buildFakeClient('user-1');
+    registry.registerConnection(deviceB);
+    const other = buildFakeClient('user-2');
+    registry.registerConnection(other);
+
+    registry.sendToUser('user-1', { event: 'newMessage', payload: {} });
+
+    expect(deviceA.send).toHaveBeenCalledTimes(1);
+    expect(deviceB.send).toHaveBeenCalledTimes(1);
+    expect(other.send).not.toHaveBeenCalled();
   });
 
   it('stops broadcasting to a client removed from a conversation', () => {

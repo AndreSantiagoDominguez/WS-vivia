@@ -56,16 +56,35 @@ export class ConnectionRegistryService {
     }
   }
 
+  /**
+   * `excludeUserId` es por `userId`, no por conexión puntual — así, si el
+   * mismo usuario tiene la conversación abierta en dos dispositivos a la
+   * vez, ninguno de los dos recibe el eco de su propia acción (evita el bug
+   * de ver tu propio mensaje/borrado/edición duplicado en tu pantalla). El
+   * actor se entera del resultado por `sendToUser`, nunca por este broadcast.
+   */
   broadcastToConversation(
     conversationId: string,
     message: unknown,
-    excludeClient?: AuthenticatedWebSocket,
+    excludeUserId?: string,
   ): void {
     const set = this.conversationClients.get(conversationId);
     if (!set) return;
     const payload = JSON.stringify(message);
     for (const client of set) {
-      if (client === excludeClient) continue;
+      if (client.userId === excludeUserId) continue;
+      if (client.readyState === client.OPEN) {
+        client.send(payload);
+      }
+    }
+  }
+
+  /** Manda a **todas** las conexiones activas de `userId` (todos sus dispositivos), no solo a la que originó la acción. */
+  sendToUser(userId: string, message: unknown): void {
+    const set = this.userClients.get(userId);
+    if (!set) return;
+    const payload = JSON.stringify(message);
+    for (const client of set) {
       if (client.readyState === client.OPEN) {
         client.send(payload);
       }
