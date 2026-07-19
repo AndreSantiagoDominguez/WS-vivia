@@ -130,16 +130,27 @@ export class ChatController {
       const conversation = await this.getOrCreateConversationUseCase.execute({
         requesterId: request.user.userId,
         requesterRole: request.user.role,
+        requesterName: body.requesterName,
+        requesterPhotoUrl: body.requesterPhotoUrl,
         otherUserId: body.otherUserId,
         otherUserRole: body.otherUserRole,
+        otherUserName: body.otherUserName,
+        otherUserPhotoUrl: body.otherUserPhotoUrl,
         propertyId: body.propertyId ?? null,
         propertyTitle: body.propertyTitle ?? null,
       });
+      // Los campos de preview/no-leídos/perfil son para la lista
+      // (GET /conversations, que sí hace los joins correspondientes) — este
+      // endpoint solo crea/obtiene el id, no vale la pena pagar esa consulta aquí.
       return this.toConversationResponse({
         conversation,
         lastMessageContent: null,
         lastMessageType: null,
         unreadCount: 0,
+        participantOneName: null,
+        participantOnePhotoUrl: null,
+        participantTwoName: null,
+        participantTwoPhotoUrl: null,
       });
     } catch (error) {
       throw this.mapDomainError(error);
@@ -260,6 +271,10 @@ export class ChatController {
       lastMessageContent: summary.lastMessageContent,
       lastMessageType: summary.lastMessageType,
       unreadCount: summary.unreadCount,
+      participantOneName: summary.participantOneName,
+      participantOnePhotoUrl: summary.participantOnePhotoUrl,
+      participantTwoName: summary.participantTwoName,
+      participantTwoPhotoUrl: summary.participantTwoPhotoUrl,
       createdAt: conversation.createdAt,
       updatedAt: conversation.updatedAt,
     };

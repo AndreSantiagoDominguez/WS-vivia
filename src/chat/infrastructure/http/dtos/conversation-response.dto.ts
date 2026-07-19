@@ -42,6 +42,22 @@ export class ConversationResponseDto {
   })
   unreadCount: number;
 
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Nombre de participantOneId — null si esa persona nunca mandó su nombre en POST /conversations.',
+  })
+  participantOneName: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  participantOnePhotoUrl: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  participantTwoName: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  participantTwoPhotoUrl: string | null;
+
   @ApiProperty({ format: 'date-time' })
   createdAt: Date;
 

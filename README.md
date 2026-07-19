@@ -124,6 +124,14 @@ Además de mensajes de texto, una conversación acepta el envío de documentos (
 - Límite: 20MB. Tipos permitidos: PDF, `.doc`/`.docx`, `.xls`/`.xlsx`.
 - La validación de tipo de archivo revisa el **número mágico real** del archivo (no el `Content-Type` que manda el cliente) — más seguro, pero exige que el tipo tenga una firma binaria detectable. Por eso no se admite texto plano: no tiene una firma real que verificar, y preferimos excluirlo antes que confiar ciegamente en lo que declara el cliente.
 
+## Cache de nombre/foto por usuario
+
+El chat no conoce perfiles de usuario — eso vive en Spring Boot, y no existe (todavía) un endpoint ahí para consultar el nombre/foto de un `userId` cualquiera. En vez de duplicar esa info por cada conversación, `chat.user_profile_cache` guarda **una sola fila por usuario** (nombre, foto), poblada desde el propio cliente:
+
+- `POST /chat/conversations` acepta `requesterName`/`requesterPhotoUrl` (tus propios datos, ya los tienes en sesión) y `otherUserName`/`otherUserPhotoUrl` (los del otro participante — típicamente ya los tenías a la mano, ej. el arrendador de la propiedad que se acaba de consultar vía `GET /properties/:id` de Spring).
+- Se actualiza (upsert) cada vez que llegan, sin importar si la conversación ya existía — así una persona que aparece en varias conversaciones queda con el mismo nombre/foto en todas después de un solo refresco, no una copia por conversación.
+- `GET /conversations` hace `LEFT JOIN` contra esta tabla — si una persona nunca mandó su nombre, esos campos regresan `null`, no truena nada.
+
 ## Esquema de datos
 
 Todo vive en el mismo Postgres que el resto de Vivia, en un schema separado `chat` (sin foreign keys reales hacia usuarios/propiedades, que viven en Spring Boot — solo se guardan UUID + snapshots de texto).
@@ -131,6 +139,7 @@ Todo vive en el mismo Postgres que el resto de Vivia, en un schema separado `cha
 - **`chat.conversations`**: `id`, `participant_one_id`/`participant_two_id` (el menor de los dos UUID siempre en `_one`, para que el índice único `(participant_one_id, participant_two_id)` sea determinístico sin importar quién inició la conversación), roles, `property_id`/`property_title` (snapshot, sin FK), `last_message_at`, `hidden_for_participant_one_at`/`hidden_for_participant_two_at` (borrado por participante, ver [Borrar una conversación](#borrar-una-conversación)), timestamps.
 - **`chat.messages`**: `id`, `conversation_id` (FK real, `ON DELETE CASCADE`), `sender_id`, `type` (`text` | `document`), `content` (texto o caption opcional), campos `document_*`, `read_at`, `deleted_at`, `edited_at`, timestamps.
 - **`chat.user_identities`**: `email` (PK), `user_id`, `is_temporary`, `updated_at` — ver [Identidad temporal](#identidad-temporal-por-email).
+- **`chat.user_profile_cache`**: `user_id` (PK), `name`, `photo_url`, `updated_at` — ver [Cache de nombre/foto por usuario](#cache-de-nombrefoto-por-usuario).
 
 ## Endpoints REST
 
@@ -138,9 +147,9 @@ Todos (salvo `/health`) requieren `Authorization: Bearer <jwt>` y usan el mismo 
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/chat/conversations` | Lista las conversaciones del usuario autenticado. Cada una incluye `lastMessageContent`/`lastMessageType` (preview calculado en vivo contra el mensaje más reciente real — nunca queda desactualizado, ni con ediciones ni con borrados) y `unreadCount` (mensajes de esa conversación que no mandó el usuario autenticado y siguen sin `readAt`). No incluye nombre/avatar del otro participante — eso vive en Spring, el chat solo conoce UUIDs. |
+| `GET` | `/chat/conversations` | Lista las conversaciones del usuario autenticado **que ya tienen al menos un mensaje** — una conversación recién creada por `POST /chat/conversations` no aparece aquí todavía (estilo WhatsApp: el `id` ya sirve para abrir el chat y mandar el primer mensaje, pero no cuenta como conversación real hasta que eso pasa). Cada una incluye `lastMessageContent`/`lastMessageType` (preview calculado en vivo contra el mensaje más reciente real — nunca queda desactualizado, ni con ediciones ni con borrados), `unreadCount` (mensajes de esa conversación que no mandó el usuario autenticado y siguen sin `readAt`), y `participantOneName`/`participantOnePhotoUrl`/`participantTwoName`/`participantTwoPhotoUrl` (ver [Cache de nombre/foto](#cache-de-nombrefoto-por-usuario) — `null` si esa persona nunca los mandó). |
 | `GET` | `/chat/conversations/:id/messages?before&limit` | Historial paginado (más reciente primero). |
-| `POST` | `/chat/conversations` | Obtiene la conversación con otro usuario, creándola si no existe (`otherUserId`, `otherUserRole`, `propertyId?`, `propertyTitle?`). |
+| `POST` | `/chat/conversations` | Obtiene la conversación con otro usuario, creándola si no existe (`otherUserId`, `otherUserRole`, `propertyId?`, `propertyTitle?`, `requesterName?`, `requesterPhotoUrl?`, `otherUserName?`, `otherUserPhotoUrl?`). |
 | `DELETE` | `/chat/conversations/:id` | Oculta la conversación solo para el usuario autenticado (`204`) — ver [Borrar una conversación](#borrar-una-conversación). |
 | `POST` | `/chat/conversations/:id/documents` | Sube un documento (`multipart/form-data`, campo `file` + `caption` opcional). |
 | `GET` | `/health` | Sin auth. Confirma que el proceso responde y que Postgres está alcanzable (`200` u `503`). Pensado para que el VPS/CI-CD decida si un deploy quedó sano. |

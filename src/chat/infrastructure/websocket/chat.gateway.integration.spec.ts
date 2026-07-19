@@ -87,6 +87,10 @@ class InMemoryConversationRepository implements IConversationRepository {
         lastMessageContent: null,
         lastMessageType: null,
         unreadCount: 0,
+        participantOneName: null,
+        participantOnePhotoUrl: null,
+        participantTwoName: null,
+        participantTwoPhotoUrl: null,
       })),
     );
   }

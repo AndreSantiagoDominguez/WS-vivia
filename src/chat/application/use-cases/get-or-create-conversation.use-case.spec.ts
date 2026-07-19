@@ -1,5 +1,6 @@
 import { Conversation } from '../../domain/entities/conversation.entity';
 import { IConversationRepository } from '../../domain/repositories/conversation.repository';
+import { IUserProfileCacheRepository } from '../../infrastructure/profile/user-profile-cache.repository';
 import { SameParticipantError } from '../errors';
 import { GetOrCreateConversationUseCase } from './get-or-create-conversation.use-case';
 
@@ -25,6 +26,7 @@ function buildConversation(
 
 describe('GetOrCreateConversationUseCase', () => {
   let repository: jest.Mocked<IConversationRepository>;
+  let profileCacheRepository: jest.Mocked<IUserProfileCacheRepository>;
   let useCase: GetOrCreateConversationUseCase;
 
   beforeEach(() => {
@@ -39,7 +41,13 @@ describe('GetOrCreateConversationUseCase', () => {
       hideForParticipant: jest.fn(),
       findConversationSummariesForUser: jest.fn(),
     };
-    useCase = new GetOrCreateConversationUseCase(repository);
+    profileCacheRepository = {
+      upsert: jest.fn(),
+    };
+    useCase = new GetOrCreateConversationUseCase(
+      repository,
+      profileCacheRepository,
+    );
   });
 
   it('creates a new conversation with ordered participant ids when none exists', async () => {
@@ -100,5 +108,47 @@ describe('GetOrCreateConversationUseCase', () => {
       }),
     ).rejects.toThrow(SameParticipantError);
     expect(repository.findByParticipants).not.toHaveBeenCalled();
+  });
+
+  it('upserts the profile cache for both participants when their name is provided', async () => {
+    repository.findByParticipants.mockResolvedValue(buildConversation());
+
+    await useCase.execute({
+      requesterId: 'aaaaaaaa-0000-0000-0000-000000000001',
+      requesterRole: 'ROLE_LESSEE',
+      requesterName: 'Juan Pérez',
+      requesterPhotoUrl: 'https://cdn.example.com/juan.jpg',
+      otherUserId: 'bbbbbbbb-0000-0000-0000-000000000002',
+      otherUserRole: 'ROLE_LESSOR',
+      otherUserName: 'María López',
+      propertyId: null,
+      propertyTitle: null,
+    });
+
+    expect(profileCacheRepository.upsert).toHaveBeenCalledWith({
+      userId: 'aaaaaaaa-0000-0000-0000-000000000001',
+      name: 'Juan Pérez',
+      photoUrl: 'https://cdn.example.com/juan.jpg',
+    });
+    expect(profileCacheRepository.upsert).toHaveBeenCalledWith({
+      userId: 'bbbbbbbb-0000-0000-0000-000000000002',
+      name: 'María López',
+      photoUrl: null,
+    });
+  });
+
+  it('does not touch the profile cache when no name is provided', async () => {
+    repository.findByParticipants.mockResolvedValue(buildConversation());
+
+    await useCase.execute({
+      requesterId: 'aaaaaaaa-0000-0000-0000-000000000001',
+      requesterRole: 'ROLE_LESSEE',
+      otherUserId: 'bbbbbbbb-0000-0000-0000-000000000002',
+      otherUserRole: 'ROLE_LESSOR',
+      propertyId: null,
+      propertyTitle: null,
+    });
+
+    expect(profileCacheRepository.upsert).not.toHaveBeenCalled();
   });
 });

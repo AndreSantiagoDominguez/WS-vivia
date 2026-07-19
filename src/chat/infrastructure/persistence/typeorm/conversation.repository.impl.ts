@@ -27,6 +27,10 @@ interface ConversationSummaryRow {
   last_message_content: string | null;
   last_message_type: string | null;
   unread_count: number;
+  participant_one_name: string | null;
+  participant_one_photo_url: string | null;
+  participant_two_name: string | null;
+  participant_two_photo_url: string | null;
 }
 
 @Injectable()
@@ -103,7 +107,11 @@ export class TypeOrmConversationRepository implements IConversationRepository {
         c.created_at, c.updated_at,
         lm.content AS last_message_content,
         lm.type AS last_message_type,
-        COALESCE(uc.count, 0) AS unread_count
+        COALESCE(uc.count, 0) AS unread_count,
+        p1.name AS participant_one_name,
+        p1.photo_url AS participant_one_photo_url,
+        p2.name AS participant_two_name,
+        p2.photo_url AS participant_two_photo_url
       FROM "chat"."conversations" c
       LEFT JOIN LATERAL (
         SELECT content, type
@@ -120,10 +128,18 @@ export class TypeOrmConversationRepository implements IConversationRepository {
           AND m2.read_at IS NULL
           AND m2.deleted_at IS NULL
       ) uc ON true
+      LEFT JOIN "chat"."user_profile_cache" p1 ON p1.user_id = c.participant_one_id
+      LEFT JOIN "chat"."user_profile_cache" p2 ON p2.user_id = c.participant_two_id
       WHERE
-        (c.participant_one_id = $1 AND (c.hidden_for_participant_one_at IS NULL OR (c.last_message_at IS NOT NULL AND c.last_message_at > c.hidden_for_participant_one_at)))
-        OR
-        (c.participant_two_id = $1 AND (c.hidden_for_participant_two_at IS NULL OR (c.last_message_at IS NOT NULL AND c.last_message_at > c.hidden_for_participant_two_at)))
+        -- Sin mensajes todavía = no cuenta como conversación real (estilo
+        -- WhatsApp): existe el id para poder chatear, pero no aparece en la
+        -- lista de nadie hasta que alguien manda el primero de verdad.
+        c.last_message_at IS NOT NULL
+        AND (
+          (c.participant_one_id = $1 AND (c.hidden_for_participant_one_at IS NULL OR c.last_message_at > c.hidden_for_participant_one_at))
+          OR
+          (c.participant_two_id = $1 AND (c.hidden_for_participant_two_at IS NULL OR c.last_message_at > c.hidden_for_participant_two_at))
+        )
       ORDER BY c.last_message_at DESC NULLS LAST, c.created_at DESC
       `,
       [userId],
@@ -147,6 +163,10 @@ export class TypeOrmConversationRepository implements IConversationRepository {
       lastMessageContent: row.last_message_content,
       lastMessageType: row.last_message_type as MessageType | null,
       unreadCount: row.unread_count,
+      participantOneName: row.participant_one_name,
+      participantOnePhotoUrl: row.participant_one_photo_url,
+      participantTwoName: row.participant_two_name,
+      participantTwoPhotoUrl: row.participant_two_photo_url,
     }));
   }
 

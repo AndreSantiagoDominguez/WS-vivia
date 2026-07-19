@@ -46,6 +46,10 @@ describe('ListConversationsForUserUseCase', () => {
         lastMessageContent: 'hola',
         lastMessageType: 'text',
         unreadCount: 3,
+        participantOneName: 'Juan Pérez',
+        participantOnePhotoUrl: null,
+        participantTwoName: 'María López',
+        participantTwoPhotoUrl: null,
       },
     ];
     conversationRepository.findConversationSummariesForUser.mockResolvedValue(

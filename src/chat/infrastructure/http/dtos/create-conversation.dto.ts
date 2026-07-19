@@ -1,5 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import {
+  IsIn,
+  IsOptional,
+  IsString,
+  IsUrl,
+  IsUUID,
+  MaxLength,
+} from 'class-validator';
 
 export class CreateConversationDto {
   @ApiProperty({
@@ -23,4 +30,38 @@ export class CreateConversationDto {
   @IsString()
   @MaxLength(200)
   propertyTitle?: string;
+
+  @ApiPropertyOptional({
+    maxLength: 200,
+    description:
+      'Nombre del usuario autenticado (el que crea la conversación) — se guarda en el cache de perfiles del chat, ver GET /conversations.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  requesterName?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL de la foto de perfil del usuario autenticado.',
+  })
+  @IsOptional()
+  @IsUrl()
+  requesterPhotoUrl?: string;
+
+  @ApiPropertyOptional({
+    maxLength: 200,
+    description:
+      'Nombre del otro participante — igual se guarda en el cache de perfiles.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  otherUserName?: string;
+
+  @ApiPropertyOptional({
+    description: 'URL de la foto de perfil del otro participante.',
+  })
+  @IsOptional()
+  @IsUrl()
+  otherUserPhotoUrl?: string;
 }

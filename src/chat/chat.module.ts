@@ -22,6 +22,9 @@ import { ConversationOrmEntity } from './infrastructure/persistence/typeorm/conv
 import { TypeOrmConversationRepository } from './infrastructure/persistence/typeorm/conversation.repository.impl';
 import { MessageOrmEntity } from './infrastructure/persistence/typeorm/message.orm-entity';
 import { TypeOrmMessageRepository } from './infrastructure/persistence/typeorm/message.repository.impl';
+import { UserProfileCacheOrmEntity } from './infrastructure/profile/user-profile-cache.orm-entity';
+import { TypeOrmUserProfileCacheRepository } from './infrastructure/profile/user-profile-cache.repository.impl';
+import { USER_PROFILE_CACHE_REPOSITORY } from './infrastructure/profile/user-profile-cache.repository';
 import { DocumentStorageService } from './infrastructure/storage/document-storage.service';
 import { ChatGateway } from './infrastructure/websocket/chat.gateway';
 import { ConnectionRegistryService } from './infrastructure/websocket/connection-registry.service';
@@ -32,6 +35,7 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
       ConversationOrmEntity,
       MessageOrmEntity,
       UserIdentityOrmEntity,
+      UserProfileCacheOrmEntity,
     ]),
   ],
   controllers: [ChatController],
@@ -48,6 +52,10 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
     {
       provide: USER_IDENTITY_REPOSITORY,
       useClass: TypeOrmUserIdentityRepository,
+    },
+    {
+      provide: USER_PROFILE_CACHE_REPOSITORY,
+      useClass: TypeOrmUserProfileCacheRepository,
     },
     GetOrCreateConversationUseCase,
     ListMessagesUseCase,

@@ -26,6 +26,11 @@ export interface ConversationSummary {
   lastMessageContent: string | null;
   lastMessageType: MessageType | null;
   unreadCount: number;
+  /** Vienen de `chat.user_profile_cache` — null si esa persona nunca mandó su nombre/foto (ver `IUserProfileCacheRepository`). */
+  participantOneName: string | null;
+  participantOnePhotoUrl: string | null;
+  participantTwoName: string | null;
+  participantTwoPhotoUrl: string | null;
 }
 
 export interface IConversationRepository {
@@ -49,6 +54,9 @@ export interface IConversationRepository {
   /**
    * Igual que `findAllForUser`, pero para la pantalla de lista: agrega el
    * preview del último mensaje real y el conteo de no leídos de `userId`.
+   * Excluye conversaciones sin ningún mensaje todavía (`lastMessageAt` nulo)
+   * — el `id` ya existe y sirve para abrir el chat y mandar el primero, pero
+   * no cuenta como conversación real hasta que eso pasa (estilo WhatsApp).
    */
   findConversationSummariesForUser(
     userId: string,
