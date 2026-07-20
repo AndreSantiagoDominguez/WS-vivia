@@ -31,6 +31,7 @@ import {
   UserIdentityRecord,
 } from '../auth/identity/user-identity.repository';
 import { JwtVerificationService } from '../auth/jwt-verification.service';
+import { PushNotificationService } from '../notifications/push-notification.service';
 import { ChatGateway } from './chat.gateway';
 import { ConnectionRegistryService } from './connection-registry.service';
 
@@ -367,6 +368,10 @@ describe('ChatGateway (integration, real ws client)', () => {
         DeleteMessageUseCase,
         EditMessageUseCase,
         ReconcileTemporaryIdentityUseCase,
+        {
+          provide: PushNotificationService,
+          useValue: { notifyNewMessage: () => Promise.resolve() },
+        },
         { provide: CONVERSATION_REPOSITORY, useValue: conversationRepository },
         { provide: MESSAGE_REPOSITORY, useValue: messageRepository },
         {

@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     # Secrets requeridos: EC2_HOST, EC2_USERNAME, EC2_RSYNC_KEY, EC2_DEPLOY_KEY,
     # DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_CLOUD_NAME,
-    # CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+    # CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, USERS_DATABASE_URL,
+    # FIREBASE_ADMINSDK_JSON
     environment: production
 
     steps:
@@ -38,6 +39,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
         run: |
           cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}"
           PORT=3001
@@ -47,4 +49,16 @@ jobs:
           CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
           CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
           CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+          USERS_DATABASE_URL=$USERS_DATABASE_URL
+          FIREBASE_KEY_PATH=/var/run/secrets/firebase-adminsdk.json
           EOF
+
+      # El service account JSON de Firebase Admin se transmite en base64 (evita
+      # problemas de comillas/saltos de línea) y se escribe como archivo en el
+      # server. DEBE ir DESPUÉS del rsync (que usa --delete y borraría secrets/).
+      # compose.yml lo monta como docker secret en /var/run/secrets/.
+      - name: Provisionar secret de Firebase
+        run: |
+          FIREBASE_B64=$(printf '%s' "${{ secrets.FIREBASE_ADMINSDK_JSON }}" | base64 -w0)
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
+            "mkdir -p ~/secrets && echo '$FIREBASE_B64' | base64 -d > ~/secrets/firebase-adminsdk.json && chmod 600 ~/secrets/firebase-adminsdk.json"

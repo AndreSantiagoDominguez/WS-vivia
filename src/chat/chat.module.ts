@@ -22,6 +22,9 @@ import { ConversationOrmEntity } from './infrastructure/persistence/typeorm/conv
 import { TypeOrmConversationRepository } from './infrastructure/persistence/typeorm/conversation.repository.impl';
 import { MessageOrmEntity } from './infrastructure/persistence/typeorm/message.orm-entity';
 import { TypeOrmMessageRepository } from './infrastructure/persistence/typeorm/message.repository.impl';
+import { FirebaseAdminService } from './infrastructure/notifications/firebase-admin.service';
+import { PushNotificationService } from './infrastructure/notifications/push-notification.service';
+import { UsersFcmTokenRepository } from './infrastructure/notifications/users-fcm-token.repository';
 import { UserProfileCacheOrmEntity } from './infrastructure/profile/user-profile-cache.orm-entity';
 import { TypeOrmUserProfileCacheRepository } from './infrastructure/profile/user-profile-cache.repository.impl';
 import { USER_PROFILE_CACHE_REPOSITORY } from './infrastructure/profile/user-profile-cache.repository';
@@ -68,6 +71,9 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
     EditMessageUseCase,
     HideConversationUseCase,
     DocumentStorageService,
+    FirebaseAdminService,
+    UsersFcmTokenRepository,
+    PushNotificationService,
   ],
 })
 export class ChatModule {}

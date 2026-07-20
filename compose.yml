@@ -5,11 +5,17 @@ services:
     build: .
     container_name: vivia-chat
     restart: always
-    # PORT, DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_* — el .env lo
-    # genera el workflow de deploy desde los Environment Secrets del repo.
+    # PORT, DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_*,
+    # USERS_DATABASE_URL, FIREBASE_KEY_PATH — el .env lo genera el workflow de
+    # deploy desde los Environment Secrets del repo.
     env_file: .env
     environment:
       NODE_ENV: production
+    # El service account JSON de Firebase Admin se monta como docker secret; en
+    # Linux /var/run es symlink a /run, así que el mount queda en el path que
+    # espera FIREBASE_KEY_PATH (/var/run/secrets/firebase-adminsdk.json).
+    secrets:
+      - firebase-adminsdk.json
     healthcheck:
       # node:22-alpine no trae curl; wget de busybox sí está disponible
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
@@ -18,6 +24,11 @@ services:
       retries: 5
     networks:
       - vivia_network
+
+secrets:
+  firebase-adminsdk.json:
+    # Lo materializa el workflow de deploy en ./secrets/ antes de levantar compose.
+    file: ./secrets/firebase-adminsdk.json
 
 networks:
   vivia_network:

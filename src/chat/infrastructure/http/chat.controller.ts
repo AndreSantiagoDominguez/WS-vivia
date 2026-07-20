@@ -46,6 +46,7 @@ import { Message } from '../../domain/entities/message.entity';
 import { ConversationSummary } from '../../domain/repositories/conversation.repository';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
 import { HttpAuthGuard } from '../auth/http-auth.guard';
+import { PushNotificationService } from '../notifications/push-notification.service';
 import { DocumentStorageService } from '../storage/document-storage.service';
 import { ConnectionRegistryService } from '../websocket/connection-registry.service';
 import {
@@ -81,6 +82,7 @@ export class ChatController {
     private readonly createDocumentMessageUseCase: CreateDocumentMessageUseCase,
     private readonly documentStorageService: DocumentStorageService,
     private readonly connectionRegistry: ConnectionRegistryService,
+    private readonly pushNotificationService: PushNotificationService,
   ) {}
 
   @Get('conversations')
@@ -239,6 +241,8 @@ export class ChatController {
         envelope(ServerEvents.NEW_MESSAGE, toNewMessagePayload(message)),
         request.user.userId,
       );
+
+      void this.pushNotificationService.notifyNewMessage(message);
 
       return this.toMessageResponse(message);
     } catch (error) {

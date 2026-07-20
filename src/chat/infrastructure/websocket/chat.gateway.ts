@@ -103,6 +103,7 @@ import {
   JwtVerificationService,
 } from '../auth/jwt-verification.service';
 import { extractBearerToken, extractProtocolToken } from '../auth/ws-auth.util';
+import { PushNotificationService } from '../notifications/push-notification.service';
 import { ConnectionRegistryService } from './connection-registry.service';
 import { DeleteMessageDto } from './dtos/delete-message.dto';
 import { EditMessageDto } from './dtos/edit-message.dto';
@@ -172,6 +173,7 @@ export class ChatGateway
     private readonly markMessagesReadUseCase: MarkMessagesReadUseCase,
     private readonly deleteMessageUseCase: DeleteMessageUseCase,
     private readonly editMessageUseCase: EditMessageUseCase,
+    private readonly pushNotificationService: PushNotificationService,
     @Inject(CONVERSATION_REPOSITORY)
     private readonly conversationRepository: IConversationRepository,
   ) {}
@@ -357,6 +359,8 @@ export class ChatGateway
         eventEnvelope,
         client.userId,
       );
+
+      void this.pushNotificationService.notifyNewMessage(message);
     } catch (error) {
       this.sendError(client, this.describeError(error));
     }

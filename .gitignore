@@ -10,6 +10,9 @@ npm-debug.log*
 .env
 .env.local
 
+# secrets (service account JSON de Firebase Admin, se provisiona en el server)
+/secrets/
+
 # coverage
 /coverage
 
