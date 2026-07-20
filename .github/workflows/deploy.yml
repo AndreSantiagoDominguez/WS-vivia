@@ -10,7 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     # Secrets requeridos: EC2_HOST, EC2_USERNAME, EC2_RSYNC_KEY, EC2_DEPLOY_KEY,
     # DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_CLOUD_NAME,
-    # CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET
+    # CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, USERS_DATABASE_URL,
+    # FIREBASE_ADMINSDK_JSON (contenido del service account JSON)
     environment: production
 
     steps:
@@ -38,8 +39,10 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+          USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
+          FIREBASE_ADMINSDK_JSON: ${{ secrets.FIREBASE_ADMINSDK_JSON }}
         run: |
-          cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}"
+          cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" "cat > .env"
           PORT=3001
           DATABASE_URL=$DATABASE_URL
           DATABASE_SSL=$DATABASE_SSL
@@ -47,4 +50,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
           CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
           CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
+          USERS_DATABASE_URL=$USERS_DATABASE_URL
+          FIREBASE_KEY_PATH=/var/run/secrets/firebase-adminsdk.json
           EOF
+          printf '%s' "$FIREBASE_ADMINSDK_JSON" | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" "mkdir -p secrets && cat > secrets/firebase-adminsdk.json && chmod 600 secrets/firebase-adminsdk.json"
