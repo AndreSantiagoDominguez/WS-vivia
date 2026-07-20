@@ -27,7 +27,7 @@ jobs:
 
       - name: Sincronizar archivos al servidor
         run: |
-          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' \
+          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' --exclude='secrets/' \
             -e "ssh -i ~/.ssh/rsync_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" \
             ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:"
 
