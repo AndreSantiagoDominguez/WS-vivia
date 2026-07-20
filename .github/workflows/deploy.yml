@@ -26,8 +26,14 @@ jobs:
           ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Sincronizar archivos al servidor
+        env:
+          FIREBASE_ADMINSDK_JSON: ${{ secrets.FIREBASE_ADMINSDK_JSON }}
         run: |
-          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' --exclude='secrets/' \
+          # El secret de Firebase viaja por rsync; el ssh de deploy no sirve para
+          # esto porque su forced command escribe el stdin a .env.
+          mkdir -p secrets
+          printf '%s' "$FIREBASE_ADMINSDK_JSON" > secrets/firebase-adminsdk.json
+          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' \
             -e "ssh -i ~/.ssh/rsync_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" \
             ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:"
 
@@ -40,9 +46,10 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
-          FIREBASE_ADMINSDK_JSON: ${{ secrets.FIREBASE_ADMINSDK_JSON }}
         run: |
-          cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" "cat > .env"
+          # El forced command del deploy_key escribe el stdin a .env y levanta
+          # compose; no pasar comando remoto ni otro stdin por esta key.
+          cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}"
           PORT=3001
           DATABASE_URL=$DATABASE_URL
           DATABASE_SSL=$DATABASE_SSL
@@ -53,4 +60,3 @@ jobs:
           USERS_DATABASE_URL=$USERS_DATABASE_URL
           FIREBASE_KEY_PATH=/var/run/secrets/firebase-adminsdk.json
           EOF
-          printf '%s' "$FIREBASE_ADMINSDK_JSON" | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" "mkdir -p secrets && cat > secrets/firebase-adminsdk.json && chmod 600 secrets/firebase-adminsdk.json"
