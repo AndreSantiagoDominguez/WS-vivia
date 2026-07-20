@@ -27,11 +27,16 @@ jobs:
 
       - name: Sincronizar archivos al servidor
         run: |
-          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' \
+          rsync -avz --delete --exclude='.git/' --exclude='node_modules/' --exclude='.env' --exclude='secrets/' \
             -e "ssh -i ~/.ssh/rsync_key -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=10" \
-            ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:"
+            ./ "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}:vps/WS-vivia/"
 
-      - name: Desplegar
+      # Genera el .env REAL en ~/vps/WS-vivia/.env desde los Environment Secrets.
+      # Se construye el archivo en el runner (donde los valores están en el env:
+      # de abajo) y se transfiere por ssh con `cat >`, en vez de pipear
+      # asignaciones sueltas al shell remoto (que se perderían). rsync excluye
+      # .env, así que este archivo no lo pisa el --delete del paso anterior.
+      - name: Generar .env en el servidor
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           DATABASE_SSL: ${{ secrets.DATABASE_SSL }}
@@ -41,24 +46,47 @@ jobs:
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
         run: |
-          cat <<EOF | ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}"
-          PORT=3001
-          DATABASE_URL=$DATABASE_URL
-          DATABASE_SSL=$DATABASE_SSL
-          JWT_SECRET=$JWT_SECRET
-          CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME
-          CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
-          CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
-          USERS_DATABASE_URL=$USERS_DATABASE_URL
-          FIREBASE_KEY_PATH=/var/run/secrets/firebase-adminsdk.json
-          EOF
+          {
+            echo "PORT=3001"
+            echo "DATABASE_URL=${DATABASE_URL}"
+            echo "DATABASE_SSL=${DATABASE_SSL}"
+            echo "JWT_SECRET=${JWT_SECRET}"
+            echo "CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}"
+            echo "CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}"
+            echo "CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}"
+            echo "USERS_DATABASE_URL=${USERS_DATABASE_URL}"
+            echo "FIREBASE_KEY_PATH=/var/run/secrets/firebase-adminsdk.json"
+          } > env.deploy
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
+            "mkdir -p ~/vps/WS-vivia"
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
+            "cat > ~/vps/WS-vivia/.env && chmod 600 ~/vps/WS-vivia/.env" < env.deploy
+          rm -f env.deploy
 
       # El service account JSON de Firebase Admin se transmite en base64 (evita
-      # problemas de comillas/saltos de línea) y se escribe como archivo en el
-      # server. DEBE ir DESPUÉS del rsync (que usa --delete y borraría secrets/).
-      # compose.yml lo monta como docker secret en /var/run/secrets/.
+      # problemas de comillas/saltos de línea) y se escribe como archivo dentro
+      # del directorio del proyecto (~/vps/WS-vivia/secrets/), que es donde
+      # compose.yml lo busca para montarlo como docker secret en
+      # /var/run/secrets/. rsync excluye secrets/, así que este archivo persiste
+      # entre deploys y no lo pisa el --delete.
+      #
+      # Guarda anti-clobber: si el secret de GitHub está vacío/sin configurar, se
+      # OMITE en vez de sobrescribir con un archivo vacío el JSON que ya está en
+      # el server (que puede haberse puesto a mano).
       - name: Provisionar secret de Firebase
         run: |
+          if [ -z "${{ secrets.FIREBASE_ADMINSDK_JSON }}" ]; then
+            echo "FIREBASE_ADMINSDK_JSON vacío — se omite (se conserva el archivo ya presente en el server)"
+            exit 0
+          fi
           FIREBASE_B64=$(printf '%s' "${{ secrets.FIREBASE_ADMINSDK_JSON }}" | base64 -w0)
           ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
-            "mkdir -p ~/secrets && echo '$FIREBASE_B64' | base64 -d > ~/secrets/firebase-adminsdk.json && chmod 600 ~/secrets/firebase-adminsdk.json"
+            "mkdir -p ~/vps/WS-vivia/secrets && echo '$FIREBASE_B64' | base64 -d > ~/vps/WS-vivia/secrets/firebase-adminsdk.json && chmod 600 ~/vps/WS-vivia/secrets/firebase-adminsdk.json"
+
+      # Reconstruye la imagen y reinicia el contenedor. Va ÚLTIMO: para este
+      # punto ya están en el server el código (rsync), el .env y el secret de
+      # Firebase, que es todo lo que compose necesita para arrancar.
+      - name: Levantar servicio
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }}" \
+            "cd ~/vps/WS-vivia && docker compose up -d --build && docker image prune -f"
