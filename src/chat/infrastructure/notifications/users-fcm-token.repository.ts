@@ -8,6 +8,24 @@ import { ConfigService } from '@nestjs/config';
 import { Pool } from 'pg';
 
 /**
+ * Quita los parámetros `sslmode`/`ssl` de la connection string. Con ellos
+ * presentes, `pg-connection-string` fija su propia config de TLS (verify-full)
+ * que pisa el objeto `ssl` pasado al `Pool`. Sin ellos, gana nuestro `ssl`
+ * explícito con `rejectUnauthorized: false`. Si la URL no es parseable, se
+ * devuelve tal cual (el `Pool` la reportará como error de conexión, no acá).
+ */
+function stripSslModeParam(connectionString: string): string {
+  try {
+    const url = new URL(connectionString);
+    url.searchParams.delete('sslmode');
+    url.searchParams.delete('ssl');
+    return url.toString();
+  } catch {
+    return connectionString;
+  }
+}
+
+/**
  * Acceso de solo lectura al `fcm_token` del destinatario, que vive en una base
  * Postgres **distinta** a la del chat (`USERS_DATABASE_URL`, tabla `users`,
  * gestionada por otro servicio de Vivia). SSL requerido, mismo criterio de
@@ -34,7 +52,14 @@ export class UsersFcmTokenRepository implements OnModuleInit, OnModuleDestroy {
       return;
     }
     this.pool = new Pool({
-      connectionString,
+      // Se quita `sslmode` de la URL: la versión nueva de pg-connection-string
+      // lo interpreta como `verify-full` y eso pisaría el objeto `ssl` de abajo,
+      // haciendo que `pg` verifique la cadena de certificados y falle con
+      // `SELF_SIGNED_CERT_IN_CHAIN` contra certificados self-signed (típico de
+      // RDS). Al removerlo, gana nuestro `ssl` explícito.
+      connectionString: stripSslModeParam(connectionString),
+      // SSL sigue activo (conexión cifrada), pero sin verificar la cadena —
+      // mismo criterio que el resto del proyecto (ver app.module.ts).
       ssl: { rejectUnauthorized: false },
     });
   }
