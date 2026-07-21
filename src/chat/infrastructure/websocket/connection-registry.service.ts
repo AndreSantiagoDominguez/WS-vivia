@@ -96,6 +96,24 @@ export class ConnectionRegistryService {
     return !!set && set.size > 0;
   }
 
+  /**
+   * Distinto de `isUserOnline`: ese solo dice "tiene algún WS conectado",
+   * este dice "está unido a ESTA conversación puntual" (mandó
+   * `joinConversation` para ella). Un usuario puede estar online pero no
+   * unido a una conversación específica (ej. está en la lista de chats, o en
+   * otra conversación) — en ese caso el broadcast no le llega, así que
+   * `PushNotificationService` debe usar este método, no `isUserOnline`, para
+   * decidir si hace falta mandar push.
+   */
+  isUserInConversation(conversationId: string, userId: string): boolean {
+    const set = this.conversationClients.get(conversationId);
+    if (!set) return false;
+    for (const client of set) {
+      if (client.userId === userId) return true;
+    }
+    return false;
+  }
+
   getAllClients(): ReadonlySet<AuthenticatedWebSocket> {
     return this.allClients;
   }
