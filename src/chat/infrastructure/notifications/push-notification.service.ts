@@ -15,9 +15,14 @@ const NOTIFICATION_BODY = 'Tienes un nuevo mensaje';
 /**
  * Orquesta el envío de push notifications vía FCM cuando llega un mensaje.
  *
- * Regla de disparo (acordada): se notifica solo si el destinatario **no tiene
- * ninguna conexión WebSocket abierta** — si tiene un socket activo ya recibe el
- * mensaje en vivo por el broadcast y no hace falta el push.
+ * Regla de disparo (corregida): se notifica solo si el destinatario **no está
+ * unido a esta conversación puntual** (`isUserInConversation`) — tener el
+ * WebSocket conectado no es suficiente para saltarse el push, porque puede
+ * estar online pero viendo otra pantalla (la lista de chats, u otra
+ * conversación) sin haber mandado `joinConversation` para esta. Usar
+ * `isUserOnline` ahí producía el bug real: el usuario no recibía el mensaje
+ * en vivo (no estaba en el room) y tampoco el push (se asumía que sí lo
+ * recibiría), quedándose sin enterarse de nada hasta reabrir la app.
  *
  * `notifyNewMessage` es fire-and-forget: nunca lanza, para no afectar el flujo
  * de envío de mensajes. Los call sites lo invocan con `void`.
@@ -46,8 +51,17 @@ export class PushNotificationService {
 
       const recipientId = conversation.otherParticipantId(message.senderId);
 
-      // Tiene socket activo → ya recibe el mensaje en vivo, no se notifica.
-      if (this.connectionRegistry.isUserOnline(recipientId)) return;
+      // Unido a ESTA conversación → ya recibe el mensaje en vivo por el
+      // broadcast, no se notifica. Estar "online" en general no basta (ver
+      // comentario de la clase).
+      if (
+        this.connectionRegistry.isUserInConversation(
+          message.conversationId,
+          recipientId,
+        )
+      ) {
+        return;
+      }
 
       const token = await this.usersFcmTokenRepository.getToken(recipientId);
       if (!token) return;

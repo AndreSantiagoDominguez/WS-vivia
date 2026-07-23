@@ -50,7 +50,7 @@ describe('PushNotificationService', () => {
   let send: jest.Mock;
   let firebaseAdmin: { getMessaging: jest.Mock };
   let tokenRepository: { getToken: jest.Mock };
-  let connectionRegistry: { isUserOnline: jest.Mock };
+  let connectionRegistry: { isUserInConversation: jest.Mock };
   let conversationRepository: Pick<IConversationRepository, 'findById'>;
   let service: PushNotificationService;
 
@@ -60,7 +60,9 @@ describe('PushNotificationService', () => {
     tokenRepository = {
       getToken: jest.fn().mockResolvedValue('fcm-token-abc'),
     };
-    connectionRegistry = { isUserOnline: jest.fn().mockReturnValue(false) };
+    connectionRegistry = {
+      isUserInConversation: jest.fn().mockReturnValue(false),
+    };
     conversationRepository = {
       findById: jest.fn().mockResolvedValue(buildConversation()),
     };
@@ -87,11 +89,15 @@ describe('PushNotificationService', () => {
     );
   });
 
-  it('does not send when the recipient has an active socket', async () => {
-    connectionRegistry.isUserOnline.mockReturnValue(true);
+  it('does not send when the recipient is joined to this specific conversation', async () => {
+    connectionRegistry.isUserInConversation.mockReturnValue(true);
 
     await service.notifyNewMessage(buildMessage());
 
+    expect(connectionRegistry.isUserInConversation).toHaveBeenCalledWith(
+      CONVERSATION_ID,
+      RECIPIENT_ID,
+    );
     expect(tokenRepository.getToken).not.toHaveBeenCalled();
     expect(send).not.toHaveBeenCalled();
   });

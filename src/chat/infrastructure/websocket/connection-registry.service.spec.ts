@@ -76,6 +76,26 @@ describe('ConnectionRegistryService', () => {
     expect(other.send).not.toHaveBeenCalled();
   });
 
+  it('isUserInConversation: true only for a user actually joined to that conversation, even if online elsewhere', () => {
+    const joined = buildFakeClient('user-1');
+    registry.registerConnection(joined);
+    registry.addToConversation('conv-1', joined);
+
+    // user-2 está online (tiene WS) pero nunca se unió a conv-1.
+    const onlineButNotJoined = buildFakeClient('user-2');
+    registry.registerConnection(onlineButNotJoined);
+
+    expect(registry.isUserInConversation('conv-1', 'user-1')).toBe(true);
+    expect(registry.isUserOnline('user-2')).toBe(true);
+    expect(registry.isUserInConversation('conv-1', 'user-2')).toBe(false);
+    expect(registry.isUserInConversation('conv-1', 'unknown-user')).toBe(
+      false,
+    );
+    expect(registry.isUserInConversation('conv-missing', 'user-1')).toBe(
+      false,
+    );
+  });
+
   it('stops broadcasting to a client removed from a conversation', () => {
     const client = buildFakeClient('user-1');
     registry.addToConversation('conv-1', client);
