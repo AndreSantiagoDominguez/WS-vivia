@@ -7,8 +7,11 @@ import {
   ListMessagesOptions,
   NewMessageData,
 } from '../../../domain/repositories/message.repository';
+import { ConversationOrmEntity } from './conversation.orm-entity';
 import { MessageOrmEntity } from './message.orm-entity';
 import { messageToDomain } from './mappers';
+
+const ROLE_LESSOR = 'ROLE_LESSOR';
 
 @Injectable()
 export class TypeOrmMessageRepository implements IMessageRepository {
@@ -115,11 +118,24 @@ export class TypeOrmMessageRepository implements IMessageRepository {
     );
   }
 
-  async countDistinctConversationsBySender(senderId: string): Promise<number> {
+  async countLessorConversations(lessorId: string): Promise<number> {
+    // El JOIN con `conversations` es lo que hace que el cupo sea "conversaciones
+    // en las que respondió COMO LESSOR": sin él, los chats donde ese mismo
+    // usuario participa como lessee también le consumirían cupo.
     const count = await this.repository
       .createQueryBuilder('message')
+      .innerJoin(
+        ConversationOrmEntity,
+        'conversation',
+        'conversation.id = message.conversation_id',
+      )
       .select('COUNT(DISTINCT message.conversation_id)', 'count')
-      .where('message.sender_id = :senderId', { senderId })
+      .where('message.sender_id = :lessorId', { lessorId })
+      .andWhere(
+        `((conversation.participant_one_id = :lessorId AND conversation.participant_one_role = :role)
+          OR (conversation.participant_two_id = :lessorId AND conversation.participant_two_role = :role))`,
+        { role: ROLE_LESSOR },
+      )
       .getRawOne<{ count: string }>();
     return Number(count?.count ?? 0);
   }

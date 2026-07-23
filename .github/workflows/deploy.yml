@@ -11,6 +11,7 @@ jobs:
     # Secrets requeridos: EC2_HOST, EC2_USERNAME, EC2_RSYNC_KEY, EC2_DEPLOY_KEY,
     # DATABASE_URL, DATABASE_SSL, JWT_SECRET, CLOUDINARY_CLOUD_NAME,
     # CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET, USERS_DATABASE_URL,
+    # ENCRYPTION_KEY (la MISMA del backend Java), CHAT_FREE_CONVERSATION_LIMIT,
     # FIREBASE_ADMINSDK_JSON (contenido del service account JSON)
     environment: production
 
@@ -46,6 +47,8 @@ jobs:
           CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
           CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
           USERS_DATABASE_URL: ${{ secrets.USERS_DATABASE_URL }}
+          ENCRYPTION_KEY: ${{ secrets.ENCRYPTION_KEY }}
+          CHAT_FREE_CONVERSATION_LIMIT: ${{ secrets.CHAT_FREE_CONVERSATION_LIMIT }}
         run: |
           # El forced command del deploy_key escribe el stdin a .env y levanta
           # compose; no pasar comando remoto ni otro stdin por esta key.
@@ -58,5 +61,7 @@ jobs:
           CLOUDINARY_API_KEY=$CLOUDINARY_API_KEY
           CLOUDINARY_API_SECRET=$CLOUDINARY_API_SECRET
           USERS_DATABASE_URL=$USERS_DATABASE_URL
+          ENCRYPTION_KEY=$ENCRYPTION_KEY
+          CHAT_FREE_CONVERSATION_LIMIT=$CHAT_FREE_CONVERSATION_LIMIT
           FIREBASE_KEY_PATH=/var/run/secrets/firebase-adminsdk.json
           EOF

@@ -157,6 +157,12 @@ class InMemoryConversationRepository implements IConversationRepository {
 class InMemoryMessageRepository implements IMessageRepository {
   private readonly messages = new Map<string, Message>();
 
+  // Necesita las conversaciones para resolver el rol del emisor en cada una,
+  // igual que el JOIN de `TypeOrmMessageRepository.countLessorConversations`.
+  constructor(
+    private readonly conversationRepository: InMemoryConversationRepository,
+  ) {}
+
   create(data: NewMessageData): Promise<Message> {
     const message = new Message({
       id: `msg-${this.messages.size}-${Date.now()}`,
@@ -256,14 +262,23 @@ class InMemoryMessageRepository implements IMessageRepository {
     return Promise.resolve();
   }
 
-  countDistinctConversationsBySender(senderId: string): Promise<number> {
+  async countLessorConversations(lessorId: string): Promise<number> {
     const conversationIds = new Set<string>();
     for (const message of this.messages.values()) {
-      if (message.senderId === senderId) {
+      if (message.senderId !== lessorId) continue;
+      const conversation = await this.conversationRepository.findById(
+        message.conversationId,
+      );
+      if (!conversation) continue;
+      const role =
+        conversation.participantOneId === lessorId
+          ? conversation.participantOneRole
+          : conversation.participantTwoRole;
+      if (role === 'ROLE_LESSOR') {
         conversationIds.add(message.conversationId);
       }
     }
-    return Promise.resolve(conversationIds.size);
+    return conversationIds.size;
   }
 
   hasSenderMessagedInConversation(
@@ -382,7 +397,7 @@ describe('ChatGateway (integration, real ws client)', () => {
         updatedAt: new Date(),
       }),
     );
-    messageRepository = new InMemoryMessageRepository();
+    messageRepository = new InMemoryMessageRepository(conversationRepository);
 
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -404,7 +419,7 @@ describe('ChatGateway (integration, real ws client)', () => {
         { provide: MESSAGE_REPOSITORY, useValue: messageRepository },
         {
           provide: LESSOR_SUBSCRIPTION_REPOSITORY,
-          useValue: { isPremiumActive: () => Promise.resolve(false) },
+          useValue: { getPremiumStatus: () => Promise.resolve('FREE') },
         },
         {
           provide: USER_IDENTITY_REPOSITORY,

@@ -29,7 +29,7 @@ describe('ConversationLimitGuard', () => {
   let messageRepository: jest.Mocked<
     Pick<
       IMessageRepository,
-      'countDistinctConversationsBySender' | 'hasSenderMessagedInConversation'
+      'countLessorConversations' | 'hasSenderMessagedInConversation'
     >
   >;
   let subscriptionRepository: jest.Mocked<ILessorSubscriptionRepository>;
@@ -37,10 +37,10 @@ describe('ConversationLimitGuard', () => {
 
   beforeEach(() => {
     messageRepository = {
-      countDistinctConversationsBySender: jest.fn(),
+      countLessorConversations: jest.fn(),
       hasSenderMessagedInConversation: jest.fn(),
     };
-    subscriptionRepository = { isPremiumActive: jest.fn() };
+    subscriptionRepository = { getPremiumStatus: jest.fn() };
     // get() devuelve undefined → el guard cae al límite por default (2).
     const configService = { get: jest.fn() } as unknown as ConfigService;
     guard = new ConversationLimitGuard(
@@ -55,10 +55,8 @@ describe('ConversationLimitGuard', () => {
       guard.assertLessorCanRespond(buildConversation(), LESSEE_ID),
     ).resolves.toBeUndefined();
 
-    expect(subscriptionRepository.isPremiumActive).not.toHaveBeenCalled();
-    expect(
-      messageRepository.countDistinctConversationsBySender,
-    ).not.toHaveBeenCalled();
+    expect(subscriptionRepository.getPremiumStatus).not.toHaveBeenCalled();
+    expect(messageRepository.countLessorConversations).not.toHaveBeenCalled();
   });
 
   it('permite al lessor seguir en una conversación donde ya respondió', async () => {
@@ -68,29 +66,25 @@ describe('ConversationLimitGuard', () => {
       guard.assertLessorCanRespond(buildConversation(), LESSOR_ID),
     ).resolves.toBeUndefined();
 
-    expect(subscriptionRepository.isPremiumActive).not.toHaveBeenCalled();
-    expect(
-      messageRepository.countDistinctConversationsBySender,
-    ).not.toHaveBeenCalled();
+    expect(subscriptionRepository.getPremiumStatus).not.toHaveBeenCalled();
+    expect(messageRepository.countLessorConversations).not.toHaveBeenCalled();
   });
 
   it('permite al lessor premium sin importar el conteo', async () => {
     messageRepository.hasSenderMessagedInConversation.mockResolvedValue(false);
-    subscriptionRepository.isPremiumActive.mockResolvedValue(true);
+    subscriptionRepository.getPremiumStatus.mockResolvedValue('PREMIUM');
 
     await expect(
       guard.assertLessorCanRespond(buildConversation(), LESSOR_ID),
     ).resolves.toBeUndefined();
 
-    expect(
-      messageRepository.countDistinctConversationsBySender,
-    ).not.toHaveBeenCalled();
+    expect(messageRepository.countLessorConversations).not.toHaveBeenCalled();
   });
 
   it('permite al lessor free por debajo del límite estrenar una conversación', async () => {
     messageRepository.hasSenderMessagedInConversation.mockResolvedValue(false);
-    subscriptionRepository.isPremiumActive.mockResolvedValue(false);
-    messageRepository.countDistinctConversationsBySender.mockResolvedValue(1);
+    subscriptionRepository.getPremiumStatus.mockResolvedValue('FREE');
+    messageRepository.countLessorConversations.mockResolvedValue(1);
 
     await expect(
       guard.assertLessorCanRespond(buildConversation(), LESSOR_ID),
@@ -99,11 +93,24 @@ describe('ConversationLimitGuard', () => {
 
   it('bloquea al lessor free que ya tiene el máximo de conversaciones activas', async () => {
     messageRepository.hasSenderMessagedInConversation.mockResolvedValue(false);
-    subscriptionRepository.isPremiumActive.mockResolvedValue(false);
-    messageRepository.countDistinctConversationsBySender.mockResolvedValue(2);
+    subscriptionRepository.getPremiumStatus.mockResolvedValue('FREE');
+    messageRepository.countLessorConversations.mockResolvedValue(2);
 
     await expect(
       guard.assertLessorCanRespond(buildConversation(), LESSOR_ID),
     ).rejects.toBeInstanceOf(ConversationLimitReachedError);
+  });
+
+  // Un fallo del subsistema de suscripciones no puede castigar a un lessor que
+  // sí es premium: ante la duda se deja pasar, no se bloquea.
+  it('no bloquea cuando no se pudo determinar el estado premium', async () => {
+    messageRepository.hasSenderMessagedInConversation.mockResolvedValue(false);
+    subscriptionRepository.getPremiumStatus.mockResolvedValue('UNKNOWN');
+
+    await expect(
+      guard.assertLessorCanRespond(buildConversation(), LESSOR_ID),
+    ).resolves.toBeUndefined();
+
+    expect(messageRepository.countLessorConversations).not.toHaveBeenCalled();
   });
 });

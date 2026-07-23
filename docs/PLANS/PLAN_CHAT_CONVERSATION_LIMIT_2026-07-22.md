@@ -1,5 +1,12 @@
 # Plan: Límite de conversaciones del lessor free en el chat (→ 402)
 
+> **Corrección (2026-07-23):** la premisa de infraestructura de abajo es **falsa**. El chat
+> tiene su propia base; `public.lessor_subscriptions` vive en la base del backend `vivia`,
+> la misma que se alcanza con `USERS_DATABASE_URL`. Consultarla en la DataSource del chat
+> fallaba, y ese error se leía como "no premium", bloqueando a los lessors premium. El
+> estado premium ahora se lee vía `ViviaDatabaseService`
+> (`PgLessorSubscriptionRepository`), y un fallo de esa consulta ya no bloquea a nadie.
+
 ## Contexto
 
 Ya existe la regla del plan free para **publicar propiedades** (máx. 2, gate 402 vía `PremiumGuard`

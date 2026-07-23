@@ -14,7 +14,9 @@ import { ConversationLimitGuard } from './application/services/conversation-limi
 import { CONVERSATION_REPOSITORY } from './domain/repositories/conversation.repository';
 import { MESSAGE_REPOSITORY } from './domain/repositories/message.repository';
 import { LESSOR_SUBSCRIPTION_REPOSITORY } from './infrastructure/subscription/lessor-subscription.repository';
-import { TypeOrmLessorSubscriptionRepository } from './infrastructure/subscription/lessor-subscription.repository.impl';
+import { PgLessorSubscriptionRepository } from './infrastructure/subscription/pg-lessor-subscription.repository';
+import { ViviaDatabaseService } from './infrastructure/external-db/vivia-database.service';
+import { PiiDecryptor } from './infrastructure/security/pii-decryptor';
 import { HttpAuthGuard } from './infrastructure/auth/http-auth.guard';
 import { UserIdentityOrmEntity } from './infrastructure/auth/identity/user-identity.orm-entity';
 import { TypeOrmUserIdentityRepository } from './infrastructure/auth/identity/user-identity.repository.impl';
@@ -57,7 +59,7 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
     { provide: MESSAGE_REPOSITORY, useClass: TypeOrmMessageRepository },
     {
       provide: LESSOR_SUBSCRIPTION_REPOSITORY,
-      useClass: TypeOrmLessorSubscriptionRepository,
+      useClass: PgLessorSubscriptionRepository,
     },
     ConversationLimitGuard,
     {
@@ -79,6 +81,8 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
     EditMessageUseCase,
     HideConversationUseCase,
     DocumentStorageService,
+    ViviaDatabaseService,
+    PiiDecryptor,
     FirebaseAdminService,
     UsersFcmTokenRepository,
     PushNotificationService,

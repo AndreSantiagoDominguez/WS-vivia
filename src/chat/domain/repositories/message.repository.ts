@@ -64,10 +64,12 @@ export interface IMessageRepository {
 
   /**
    * Cuántas conversaciones distintas tienen al menos un mensaje enviado por
-   * `senderId`. Es el conteo de "conversaciones activas" de un lessor para el
-   * límite del plan free (ver `ConversationLimitGuard`).
+   * `lessorId` **participando como lessor**. Es el conteo de "conversaciones
+   * activas" de un lessor para el límite del plan free (ver
+   * `ConversationLimitGuard`); los chats donde ese usuario es el lessee no
+   * cuentan, porque contactar a un lessor nunca consume cupo.
    */
-  countDistinctConversationsBySender(senderId: string): Promise<number>;
+  countLessorConversations(lessorId: string): Promise<number>;
 
   /** `true` si `senderId` ya envió al menos un mensaje en `conversationId`. */
   hasSenderMessagedInConversation(

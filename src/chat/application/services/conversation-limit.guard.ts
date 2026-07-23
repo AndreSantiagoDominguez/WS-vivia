@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Conversation } from '../../domain/entities/conversation.entity';
 import {
@@ -23,6 +23,7 @@ const DEFAULT_FREE_CONVERSATION_LIMIT = 2;
  */
 @Injectable()
 export class ConversationLimitGuard {
+  private readonly logger = new Logger(ConversationLimitGuard.name);
   private readonly freeConversationLimit: number;
 
   constructor(
@@ -47,8 +48,8 @@ export class ConversationLimitGuard {
    * Lanza `ConversationLimitReachedError` si `senderId` es el lessor de la
    * conversación, está estrenándola (aún no mandó ningún mensaje aquí) y ya
    * alcanzó su límite gratuito de conversaciones activas. No hace nada si el
-   * emisor es el lessee, si el lessor es premium, o si la conversación ya
-   * contaba (el lessor ya había respondido antes).
+   * emisor es el lessee, si el lessor es premium (o no se pudo determinar), o
+   * si la conversación ya contaba (el lessor ya había respondido antes).
    */
   async assertLessorCanRespond(
     conversation: Conversation,
@@ -67,12 +68,23 @@ export class ConversationLimitGuard {
       return;
     }
 
-    if (await this.subscriptionRepository.isPremiumActive(senderId)) {
+    const premiumStatus =
+      await this.subscriptionRepository.getPremiumStatus(senderId);
+    if (premiumStatus === 'PREMIUM') {
+      return;
+    }
+    if (premiumStatus === 'UNKNOWN') {
+      // No se pudo consultar la suscripción: se deja pasar. Bloquear aquí
+      // castigaría a un lessor premium por una caída del subsistema de
+      // suscripciones, que es peor que dejar colar una conversación de más.
+      this.logger.warn(
+        `No se pudo determinar el premium del lessor ${senderId}; se permite la conversación sin aplicar el límite free`,
+      );
       return;
     }
 
     const activeConversations =
-      await this.messageRepository.countDistinctConversationsBySender(senderId);
+      await this.messageRepository.countLessorConversations(senderId);
     if (activeConversations >= this.freeConversationLimit) {
       throw new ConversationLimitReachedError(this.freeConversationLimit);
     }

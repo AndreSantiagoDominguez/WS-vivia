@@ -88,12 +88,8 @@ describe('ConnectionRegistryService', () => {
     expect(registry.isUserInConversation('conv-1', 'user-1')).toBe(true);
     expect(registry.isUserOnline('user-2')).toBe(true);
     expect(registry.isUserInConversation('conv-1', 'user-2')).toBe(false);
-    expect(registry.isUserInConversation('conv-1', 'unknown-user')).toBe(
-      false,
-    );
-    expect(registry.isUserInConversation('conv-missing', 'user-1')).toBe(
-      false,
-    );
+    expect(registry.isUserInConversation('conv-1', 'unknown-user')).toBe(false);
+    expect(registry.isUserInConversation('conv-missing', 'user-1')).toBe(false);
   });
 
   it('stops broadcasting to a client removed from a conversation', () => {

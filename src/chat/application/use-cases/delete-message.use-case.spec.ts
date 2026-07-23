@@ -46,7 +46,7 @@ describe('DeleteMessageUseCase', () => {
       updateContent: jest.fn(),
       reassignConversation: jest.fn(),
       reassignSender: jest.fn(),
-      countDistinctConversationsBySender: jest.fn(),
+      countLessorConversations: jest.fn(),
       hasSenderMessagedInConversation: jest.fn(),
     };
     useCase = new DeleteMessageUseCase(messageRepository);
