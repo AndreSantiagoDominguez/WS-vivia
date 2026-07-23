@@ -78,3 +78,20 @@ export class CannotEditDocumentMessageError extends Error {
     this.name = 'CannotEditDocumentMessageError';
   }
 }
+
+/**
+ * El lessor free ya tiene el máximo de conversaciones activas (aquellas donde
+ * él ya respondió) y está intentando estrenar una nueva. El cupo se consume
+ * cuando el lessor manda su primer mensaje en una conversación, no cuando el
+ * lessee lo contacta — por eso este error solo puede originarlo un envío del
+ * propio lessor. Los adaptadores lo mapean a 402 (requiere suscripción).
+ */
+export class ConversationLimitReachedError extends Error {
+  constructor(limit: number) {
+    super(
+      `Alcanzaste el límite gratuito de ${limit} conversaciones. ` +
+        `Hazte Premium para responder a más lessees.`,
+    );
+    this.name = 'ConversationLimitReachedError';
+  }
+}

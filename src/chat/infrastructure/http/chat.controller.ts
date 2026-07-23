@@ -37,6 +37,7 @@ import { HideConversationUseCase } from '../../application/use-cases/hide-conver
 import { ListConversationsForUserUseCase } from '../../application/use-cases/list-conversations-for-user.use-case';
 import { ListMessagesUseCase } from '../../application/use-cases/list-messages.use-case';
 import {
+  ConversationLimitReachedError,
   ConversationNotFoundError,
   InvalidCaptionError,
   NotConversationParticipantError,
@@ -262,6 +263,11 @@ export class ChatController {
       error instanceof InvalidCaptionError
     ) {
       return new BadRequestException(error.message);
+    }
+    // Nest no expone PaymentRequiredException — se arma con HttpException. El
+    // lessor free alcanzó su límite de conversaciones activas (requiere premium).
+    if (error instanceof ConversationLimitReachedError) {
+      return new HttpException(error.message, HttpStatus.PAYMENT_REQUIRED);
     }
     return new InternalServerErrorException();
   }

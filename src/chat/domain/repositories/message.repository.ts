@@ -61,4 +61,17 @@ export interface IMessageRepository {
 
   /** Reasigna el remitente de todos los mensajes de `oldUserId` a `newUserId`. */
   reassignSender(oldUserId: string, newUserId: string): Promise<void>;
+
+  /**
+   * Cuántas conversaciones distintas tienen al menos un mensaje enviado por
+   * `senderId`. Es el conteo de "conversaciones activas" de un lessor para el
+   * límite del plan free (ver `ConversationLimitGuard`).
+   */
+  countDistinctConversationsBySender(senderId: string): Promise<number>;
+
+  /** `true` si `senderId` ya envió al menos un mensaje en `conversationId`. */
+  hasSenderMessagedInConversation(
+    conversationId: string,
+    senderId: string,
+  ): Promise<boolean>;
 }

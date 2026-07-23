@@ -8,6 +8,7 @@ import {
   IMessageRepository,
   MESSAGE_REPOSITORY,
 } from '../../domain/repositories/message.repository';
+import { ConversationLimitGuard } from '../services/conversation-limit.guard';
 import {
   ConversationNotFoundError,
   InvalidCaptionError,
@@ -39,6 +40,7 @@ export class CreateDocumentMessageUseCase {
     private readonly conversationRepository: IConversationRepository,
     @Inject(MESSAGE_REPOSITORY)
     private readonly messageRepository: IMessageRepository,
+    private readonly conversationLimitGuard: ConversationLimitGuard,
   ) {}
 
   async execute(input: CreateDocumentMessageInput): Promise<Message> {
@@ -59,6 +61,11 @@ export class CreateDocumentMessageUseCase {
         input.conversationId,
       );
     }
+
+    await this.conversationLimitGuard.assertLessorCanRespond(
+      conversation,
+      input.senderId,
+    );
 
     const message = await this.messageRepository.create({
       conversationId: input.conversationId,

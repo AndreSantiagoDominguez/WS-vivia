@@ -84,6 +84,7 @@ import { EditMessageUseCase } from '../../application/use-cases/edit-message.use
 import { MarkMessagesReadUseCase } from '../../application/use-cases/mark-messages-read.use-case';
 import {
   CannotEditDocumentMessageError,
+  ConversationLimitReachedError,
   ConversationNotFoundError,
   InvalidMessageContentError,
   MessageAlreadyDeletedError,
@@ -113,6 +114,7 @@ import { NewMessageDto } from './dtos/new-message.dto';
 import { TypingDto } from './dtos/typing.dto';
 import {
   ClientEvents,
+  ErrorCodes,
   ServerEvents,
   envelope,
   toNewMessagePayload,
@@ -362,7 +364,7 @@ export class ChatGateway
 
       void this.pushNotificationService.notifyNewMessage(message);
     } catch (error) {
-      this.sendError(client, this.describeError(error));
+      this.sendError(client, this.describeError(error), this.errorCode(error));
     }
   }
 
@@ -518,6 +520,7 @@ export class ChatGateway
       error instanceof ConversationNotFoundError ||
       error instanceof NotConversationParticipantError ||
       error instanceof InvalidMessageContentError ||
+      error instanceof ConversationLimitReachedError ||
       error instanceof MessageNotFoundError ||
       error instanceof NotMessageSenderError ||
       error instanceof MessageAlreadyDeletedError ||
@@ -531,6 +534,17 @@ export class ChatGateway
     return 'Unexpected error';
   }
 
+  /**
+   * Código legible por máquina para los errores accionables por el cliente.
+   * `undefined` para el resto (el móvil solo mostrará `reason`).
+   */
+  private errorCode(error: unknown): string | undefined {
+    if (error instanceof ConversationLimitReachedError) {
+      return ErrorCodes.CONVERSATION_LIMIT_REACHED;
+    }
+    return undefined;
+  }
+
   private send<T>(
     client: AuthenticatedWebSocket,
     event: string,
@@ -541,7 +555,14 @@ export class ChatGateway
     }
   }
 
-  private sendError(client: AuthenticatedWebSocket, reason: string): void {
-    this.send(client, ServerEvents.ERROR, { reason });
+  private sendError(
+    client: AuthenticatedWebSocket,
+    reason: string,
+    code?: string,
+  ): void {
+    this.send(client, ServerEvents.ERROR, {
+      reason,
+      ...(code ? { code } : {}),
+    });
   }
 }

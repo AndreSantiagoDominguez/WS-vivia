@@ -28,6 +28,15 @@ export const ServerEvents = {
   ERROR: 'error',
 } as const;
 
+/**
+ * Códigos legibles por máquina para el payload de `ServerEvents.ERROR`. El
+ * móvil los usa para distinguir un error accionable (p. ej. mostrar la pantalla
+ * de suscripción) de un fallo genérico, sin parsear el texto de `reason`.
+ */
+export const ErrorCodes = {
+  CONVERSATION_LIMIT_REACHED: 'CONVERSATION_LIMIT_REACHED',
+} as const;
+
 export function envelope<TPayload>(
   event: string,
   payload: TPayload,

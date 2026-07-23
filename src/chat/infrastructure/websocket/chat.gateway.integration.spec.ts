@@ -6,6 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import { Server } from 'http';
 import { AddressInfo } from 'net';
 import { WebSocket } from 'ws';
+import { ConversationLimitGuard } from '../../application/services/conversation-limit.guard';
 import { CreateMessageUseCase } from '../../application/use-cases/create-message.use-case';
 import { DeleteMessageUseCase } from '../../application/use-cases/delete-message.use-case';
 import { EditMessageUseCase } from '../../application/use-cases/edit-message.use-case';
@@ -24,6 +25,7 @@ import {
   MESSAGE_REPOSITORY,
   NewMessageData,
 } from '../../domain/repositories/message.repository';
+import { LESSOR_SUBSCRIPTION_REPOSITORY } from '../subscription/lessor-subscription.repository';
 import { deriveTemporaryUserId } from '../auth/identity/temporary-identity.util';
 import {
   IUserIdentityRepository,
@@ -253,6 +255,31 @@ class InMemoryMessageRepository implements IMessageRepository {
     }
     return Promise.resolve();
   }
+
+  countDistinctConversationsBySender(senderId: string): Promise<number> {
+    const conversationIds = new Set<string>();
+    for (const message of this.messages.values()) {
+      if (message.senderId === senderId) {
+        conversationIds.add(message.conversationId);
+      }
+    }
+    return Promise.resolve(conversationIds.size);
+  }
+
+  hasSenderMessagedInConversation(
+    conversationId: string,
+    senderId: string,
+  ): Promise<boolean> {
+    for (const message of this.messages.values()) {
+      if (
+        message.conversationId === conversationId &&
+        message.senderId === senderId
+      ) {
+        return Promise.resolve(true);
+      }
+    }
+    return Promise.resolve(false);
+  }
 }
 
 class InMemoryUserIdentityRepository implements IUserIdentityRepository {
@@ -364,6 +391,7 @@ describe('ChatGateway (integration, real ws client)', () => {
         JwtVerificationService,
         { provide: ConfigService, useValue: { get: () => JWT_SECRET } },
         CreateMessageUseCase,
+        ConversationLimitGuard,
         MarkMessagesReadUseCase,
         DeleteMessageUseCase,
         EditMessageUseCase,
@@ -374,6 +402,10 @@ describe('ChatGateway (integration, real ws client)', () => {
         },
         { provide: CONVERSATION_REPOSITORY, useValue: conversationRepository },
         { provide: MESSAGE_REPOSITORY, useValue: messageRepository },
+        {
+          provide: LESSOR_SUBSCRIPTION_REPOSITORY,
+          useValue: { isPremiumActive: () => Promise.resolve(false) },
+        },
         {
           provide: USER_IDENTITY_REPOSITORY,
           useClass: InMemoryUserIdentityRepository,

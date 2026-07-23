@@ -10,8 +10,11 @@ import { ListConversationsForUserUseCase } from './application/use-cases/list-co
 import { ListMessagesUseCase } from './application/use-cases/list-messages.use-case';
 import { MarkMessagesReadUseCase } from './application/use-cases/mark-messages-read.use-case';
 import { ReconcileTemporaryIdentityUseCase } from './application/use-cases/reconcile-temporary-identity.use-case';
+import { ConversationLimitGuard } from './application/services/conversation-limit.guard';
 import { CONVERSATION_REPOSITORY } from './domain/repositories/conversation.repository';
 import { MESSAGE_REPOSITORY } from './domain/repositories/message.repository';
+import { LESSOR_SUBSCRIPTION_REPOSITORY } from './infrastructure/subscription/lessor-subscription.repository';
+import { TypeOrmLessorSubscriptionRepository } from './infrastructure/subscription/lessor-subscription.repository.impl';
 import { HttpAuthGuard } from './infrastructure/auth/http-auth.guard';
 import { UserIdentityOrmEntity } from './infrastructure/auth/identity/user-identity.orm-entity';
 import { TypeOrmUserIdentityRepository } from './infrastructure/auth/identity/user-identity.repository.impl';
@@ -52,6 +55,11 @@ import { ConnectionRegistryService } from './infrastructure/websocket/connection
       useClass: TypeOrmConversationRepository,
     },
     { provide: MESSAGE_REPOSITORY, useClass: TypeOrmMessageRepository },
+    {
+      provide: LESSOR_SUBSCRIPTION_REPOSITORY,
+      useClass: TypeOrmLessorSubscriptionRepository,
+    },
+    ConversationLimitGuard,
     {
       provide: USER_IDENTITY_REPOSITORY,
       useClass: TypeOrmUserIdentityRepository,

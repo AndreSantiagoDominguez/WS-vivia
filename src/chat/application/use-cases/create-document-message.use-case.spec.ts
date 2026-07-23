@@ -7,6 +7,7 @@ import {
   InvalidCaptionError,
   NotConversationParticipantError,
 } from '../errors';
+import { ConversationLimitGuard } from '../services/conversation-limit.guard';
 import { CreateDocumentMessageUseCase } from './create-document-message.use-case';
 
 const PARTICIPANT_ONE = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -68,10 +69,16 @@ describe('CreateDocumentMessageUseCase', () => {
       updateContent: jest.fn(),
       reassignConversation: jest.fn(),
       reassignSender: jest.fn(),
+      countDistinctConversationsBySender: jest.fn(),
+      hasSenderMessagedInConversation: jest.fn(),
     };
+    const conversationLimitGuard = {
+      assertLessorCanRespond: jest.fn().mockResolvedValue(undefined),
+    } as unknown as ConversationLimitGuard;
     useCase = new CreateDocumentMessageUseCase(
       conversationRepository,
       messageRepository,
+      conversationLimitGuard,
     );
   });
 

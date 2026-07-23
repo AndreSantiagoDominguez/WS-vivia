@@ -114,4 +114,24 @@ export class TypeOrmMessageRepository implements IMessageRepository {
       { senderId: newUserId },
     );
   }
+
+  async countDistinctConversationsBySender(senderId: string): Promise<number> {
+    const count = await this.repository
+      .createQueryBuilder('message')
+      .select('COUNT(DISTINCT message.conversation_id)', 'count')
+      .where('message.sender_id = :senderId', { senderId })
+      .getRawOne<{ count: string }>();
+    return Number(count?.count ?? 0);
+  }
+
+  async hasSenderMessagedInConversation(
+    conversationId: string,
+    senderId: string,
+  ): Promise<boolean> {
+    const existing = await this.repository.findOne({
+      where: { conversationId, senderId },
+      select: { id: true },
+    });
+    return existing !== null;
+  }
 }
